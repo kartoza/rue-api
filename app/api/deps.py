@@ -1,5 +1,6 @@
 from collections.abc import Generator
 from typing import Annotated
+from uuid import UUID
 
 import jwt
 from fastapi import Depends, HTTPException
@@ -35,11 +36,17 @@ def get_current_user(session: SessionDep, token: TokenDep) -> User:
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Could not validate credentials",
         ) from err
-    user = session.get(User, token_data.sub)
+    try:
+        user_pk = token_data.sub if isinstance(token_data.sub, UUID) else UUID(str(token_data.sub))
+    except (ValueError, TypeError) as err:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Could not validate credentials",
+        ) from err
+
+    user = session.get(User, user_pk)
     if not user:
-        raise HTTPException(status_code=404, detail="User not found")
-    if not user.is_active:
-        raise HTTPException(status_code=400, detail="Inactive user")
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
     return user
 
 
