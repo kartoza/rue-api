@@ -16,7 +16,6 @@ ENV/
 # Packaging / builds
 *.egg-info/
 dist/
-build/
 
 # Logs
 logs/

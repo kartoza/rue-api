@@ -1,0 +1,70 @@
+name: Tests (coverage via uv)
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  tests:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.11', '3.12', '3.13']
+
+    env:
+      ENVIRONMENT: local
+      DB_SCHEME: sqlite
+      SQLITE_DB_PATH: rue.db
+      PROJECT_NAME: RUE API
+      FIRST_SUPERUSER: admin@example.com
+      FIRST_SUPERUSER_PASSWORD: changethis
+      SECRET_KEY: changethis
+      UV_VENV: .venv
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Set up uv
+        uses: astral-sh/setup-uv@v3
+
+      - name: Show tool versions
+        run: |
+          python -V
+          uv --version
+
+      - name: Extend lock for this Python (if needed)
+        run: uv lock --python ${{ matrix.python-version }}
+
+      - name: Sync (frozen) from lock
+        run: uv sync --frozen --project . --extra dev
+
+      - name: Run tests with coverage
+        run: |
+          uv run pytest -q --maxfail=1 --disable-warnings \
+            --cov=app --cov=tests \
+            --cov-report=term-missing --cov-report=xml --cov-report=html
+
+      - name: Upload coverage XML
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: coverage-xml-${{ matrix.python-version }}
+          path: coverage.xml
+
+      - name: Upload HTML coverage
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: htmlcov-${{ matrix.python-version }}
+          path: htmlcov
