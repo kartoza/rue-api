@@ -75,7 +75,7 @@ jobs:
 
       - name: Build badge
         if: ${{ github.ref == 'refs/heads/main' && matrix.python-version == '3.12' && success() }}
-        uses: tj-actions/coverage-badge-py@v3
+        uses: tj-actions/coverage-badge-py@v2
         with:
           input: coverage.xml
           output: badges/coverage.svg
