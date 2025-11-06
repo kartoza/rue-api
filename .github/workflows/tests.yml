@@ -6,7 +6,7 @@ on:
   pull_request:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
   tests:
@@ -68,3 +68,21 @@ jobs:
         with:
           name: htmlcov-${{ matrix.python-version }}
           path: htmlcov
+
+      - name: Generate coverage badge (main / 3.12 only)
+        if: ${{ github.ref == 'refs/heads/main' && matrix.python-version == '3.12' && success() }}
+        run: |
+          mkdir -p badges
+      - name: Build badge
+        if: ${{ github.ref == 'refs/heads/main' && matrix.python-version == '3.12' && success() }}
+        uses: tj-actions/coverage-badge-py@v3
+        with:
+          input: coverage.xml
+          output: badges/coverage.svg
+
+      - name: Commit badge
+        if: ${{ github.ref == 'refs/heads/main' && matrix.python-version == '3.12' && success() }}
+        uses: EndBug/add-and-commit@v9
+        with:
+          add: badges/coverage.svg
+          message: "chore(ci): update coverage badge [skip ci]"
