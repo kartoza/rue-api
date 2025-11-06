@@ -1,13 +1,10 @@
 name: Tests (coverage via uv)
-
 on:
   push:
     branches: [ main, develop ]
   pull_request:
-
 permissions:
   contents: write
-
 jobs:
   tests:
     runs-on: ubuntu-latest
@@ -15,7 +12,6 @@ jobs:
       fail-fast: false
       matrix:
         python-version: ['3.11', '3.12', '3.13']
-
     env:
       ENVIRONMENT: local
       DB_SCHEME: sqlite
@@ -25,64 +21,53 @@ jobs:
       FIRST_SUPERUSER_PASSWORD: changethis
       SECRET_KEY: changethis
       UV_VENV: .venv
-
     steps:
       - name: Checkout
         uses: actions/checkout@v4
-
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
           python-version: ${{ matrix.python-version }}
-
       - name: Set up uv
         uses: astral-sh/setup-uv@v3
-
       - name: Show tool versions
         run: |
           python -V
           uv --version
-
       - name: Extend lock for this Python (if needed)
         run: uv lock --python ${{ matrix.python-version }}
-
       - name: Sync (frozen) from lock
         run: uv sync --frozen --project . --extra dev
-
       - name: Run tests with coverage
         run: |
           uv run pytest -q --maxfail=1 --disable-warnings \
             --cov=app --cov=tests \
             --cov-report=term-missing --cov-report=xml --cov-report=html
-
       - name: Upload coverage XML
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: coverage-xml-${{ matrix.python-version }}
           path: coverage.xml
-
       - name: Upload HTML coverage
         if: always()
         uses: actions/upload-artifact@v4
         with:
           name: htmlcov-${{ matrix.python-version }}
           path: htmlcov
-
       - name: Generate coverage badge directory (main / 3.12 only)
         if: ${{ github.ref == 'refs/heads/main' && matrix.python-version == '3.12' && success() }}
         run: mkdir -p badges
-
       - name: Build badge
         if: ${{ github.ref == 'refs/heads/main' && matrix.python-version == '3.12' && success() }}
         uses: tj-actions/coverage-badge-py@v2
         with:
           input: coverage.xml
           output: badges/coverage.svg
-
-      - name: Commit badge
+      - name: Commit badge to badges branch
         if: ${{ github.ref == 'refs/heads/main' && matrix.python-version == '3.12' && success() }}
         uses: EndBug/add-and-commit@v9
         with:
           add: badges/coverage.svg
           message: "chore(ci): update coverage badge [skip ci]"
+          new_branch: badges
