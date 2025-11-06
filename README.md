@@ -1,5 +1,4 @@
 # RUE API
-![coverage](https://raw.githubusercontent.com/kartoza/rue-api/main/badges/coverage.svg)
 ![Tests](https://github.com/kartoza/rue-api/actions/workflows/tests.yml/badge.svg?branch=main)
 ![Python](https://img.shields.io/badge/python-3.11%20|%203.12%20|%203.13-blue)
 ![Code style: Ruff](https://img.shields.io/badge/code%20style-ruff-000000?logo=ruff)
