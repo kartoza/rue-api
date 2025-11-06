@@ -3,7 +3,7 @@ name = "rue-api"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
-    "fastapi[standard]>=0.121.0,<0.122",
+    "fastapi[standard]<1.0.0,>=0.114.2",
     "uvicorn[standard]>=0.30,<0.39",
 
     "python-multipart>=0.0.7,<1.0.0",
