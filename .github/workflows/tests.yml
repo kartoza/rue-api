@@ -69,13 +69,13 @@ jobs:
           name: htmlcov-${{ matrix.python-version }}
           path: htmlcov
 
-      - name: Generate coverage badge (main / 3.12 only)
+      - name: Generate coverage badge directory (main / 3.12 only)
         if: ${{ github.ref == 'refs/heads/main' && matrix.python-version == '3.12' && success() }}
-        run: |
-          mkdir -p badges
+        run: mkdir -p badges
+
       - name: Build badge
         if: ${{ github.ref == 'refs/heads/main' && matrix.python-version == '3.12' && success() }}
-        uses: tj-actions/coverage-badge-py@v3
+        uses: tj-actions/coverage-badge-py@v2
         with:
           input: coverage.xml
           output: badges/coverage.svg
