@@ -1,0 +1,1011 @@
+openapi: 3.0.3
+info:
+  title: Urban Planning GIS Platform API
+  description: API for urban planning and GIS operations with FastAPI backend
+  version: 1.0.0
+  contact:
+    name: Urban Planning Team
+    email: contact@urbanplanning.com
+
+servers:
+  - url: https://api.urbanplanning.com/v1
+    description: Production server
+  - url: http://localhost:8000/v1
+    description: Development server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+        role:
+          type: string
+          enum: [admin, planner, viewer]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserLogin:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+
+    UserRegister:
+      type: object
+      required:
+        - username
+        - email
+        - password
+        - full_name
+      properties:
+        username:
+          type: string
+          minLength: 3
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+        full_name:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          default: bearer
+        user:
+          $ref: '#/components/schemas/UserProfile'
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        owner_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, active, completed, archived]
+        boundary:
+          type: object
+          description: GeoJSON polygon of project boundary
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+
+    ProjectCreate:
+      type: object
+      required:
+        - name
+        - boundary
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        boundary:
+          type: object
+          description: GeoJSON polygon
+        metadata:
+          type: object
+          additionalProperties: true
+
+    ProjectUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, completed, archived]
+        boundary:
+          type: object
+        metadata:
+          type: object
+          additionalProperties: true
+
+    ProjectList:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        project_id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        task_type:
+          type: string
+          enum: [Site, Streets, Cluster, Public, Subdivision, Footprint, Starter buildings, Consolidated buildings]
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        inputs:
+          type: object
+          description: Task-specific input parameters
+        outputs:
+          type: object
+          description: Task-specific output results
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+
+    TaskCreate:
+      type: object
+      required:
+        - name
+        - task_type
+        - inputs
+      properties:
+        name:
+          type: string
+        task_type:
+          type: string
+          enum: [Site, Streets, Cluster, Public, Subdivision, Footprint, Starter buildings, Consolidated buildings]
+        inputs:
+          type: object
+          properties:
+            project_parameters:
+              type: object
+              additionalProperties: true
+            project_boundary:
+              type: object
+              description: GeoJSON polygon
+            project_starter_roads:
+              type: object
+              description: GeoJSON LineString collection
+            initial_block_layout:
+              type: object
+            streets:
+              type: object
+            cluster_plan:
+              type: object
+            public_plan:
+              type: object
+            subdivision_plan:
+              type: object
+            footprint_plan:
+              type: object
+            starter_buildings_plan:
+              type: object
+
+    TaskUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+        outputs:
+          type: object
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        message:
+          type: string
+        type:
+          type: string
+          enum: [info, warning, error, success]
+        read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    NotificationUpdate:
+      type: object
+      properties:
+        read:
+          type: boolean
+
+    StudyAreaCreate:
+      type: object
+      required:
+        - neighbourhood_parameters
+        - tissue_parameters
+        - building_parameters
+        - development_area_polygon
+        - arterial_roads
+        - secondary_roads
+      properties:
+        neighbourhood_parameters:
+          type: object
+          properties:
+            density:
+              type: number
+              minimum: 0
+            mixed_use_ratio:
+              type: number
+              minimum: 0
+              maximum: 1
+            green_space_ratio:
+              type: number
+              minimum: 0
+              maximum: 1
+          additionalProperties: true
+        tissue_parameters:
+          type: object
+          properties:
+            block_size_min:
+              type: number
+            block_size_max:
+              type: number
+            street_width:
+              type: number
+          additionalProperties: true
+        building_parameters:
+          type: object
+          properties:
+            max_height:
+              type: number
+            min_setback:
+              type: number
+            floor_area_ratio:
+              type: number
+          additionalProperties: true
+        development_area_polygon:
+          type: object
+          description: GeoJSON Polygon or MultiPolygon
+        arterial_roads:
+          type: object
+          description: GeoJSON LineString collection
+        secondary_roads:
+          type: object
+          description: GeoJSON LineString collection
+
+    StudyAreaResponse:
+      type: object
+      properties:
+        study_area_id:
+          type: string
+          format: uuid
+        created_at:
+          type: string
+          format: date-time
+        status:
+          type: string
+          enum: [created, validating, validated, failed]
+
+    StudyAreaValidation:
+      type: object
+      properties:
+        status:
+          type: boolean
+          description: True if inputs are correct
+        message:
+          type: string
+          description: Error or advisory messages
+        validation_details:
+          type: object
+          properties:
+            geometric_contiguity:
+              type: boolean
+            geometric_integrity:
+              type: boolean
+            parameter_ranges:
+              type: boolean
+            issues:
+              type: array
+              items:
+                type: object
+                properties:
+                  field:
+                    type: string
+                  error:
+                    type: string
+                  severity:
+                    type: string
+                    enum: [error, warning, info]
+
+    SettlementProperties:
+      type: object
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        type:
+          type: string
+          enum: [residential, commercial, industrial, mixed]
+        area_sqm:
+          type: number
+        population_estimate:
+          type: number
+        density_persons_per_sqm:
+          type: number
+        land_use_category:
+          type: string
+          enum: [urban, suburban, rural]
+        zoning_designation:
+          type: string
+        num_buildings:
+          type: integer
+        average_building_height:
+          type: number
+        infrastructure_score:
+          type: number
+          minimum: 0
+          maximum: 100
+        green_space_ratio:
+          type: number
+          minimum: 0
+          maximum: 1
+        centroid_latitude:
+          type: number
+        centroid_longitude:
+          type: number
+        properties:
+          type: object
+          additionalProperties: true
+
+    SettlementFeature:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [Feature]
+        geometry:
+          type: object
+          description: GeoJSON Polygon geometry
+        properties:
+          $ref: '#/components/schemas/SettlementProperties'
+
+    SettlementCollection:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [FeatureCollection]
+        features:
+          type: array
+          items:
+            $ref: '#/components/schemas/SettlementFeature'
+
+    LotProperties:
+      type: object
+      properties:
+        id:
+          type: string
+        study_area_id:
+          type: string
+        parcel_id:
+          type: string
+        area_sqm:
+          type: number
+        zoning_designation:
+          type: string
+        current_land_use:
+          type: string
+          enum: [vacant, residential, commercial, industrial, public]
+        developable:
+          type: boolean
+        slope_degrees:
+          type: number
+        access_road_type:
+          type: string
+          enum: [arterial, secondary, local]
+        has_utilities_access:
+          type: boolean
+        distance_to_nearest_settlement:
+          type: number
+        centroid_latitude:
+          type: number
+        centroid_longitude:
+          type: number
+        properties:
+          type: object
+          additionalProperties: true
+
+    LotFeature:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [Feature]
+        geometry:
+          type: object
+          description: GeoJSON Polygon geometry
+        properties:
+          $ref: '#/components/schemas/LotProperties'
+
+    LotCollection:
+      type: object
+      properties:
+        type:
+          type: string
+          enum: [FeatureCollection]
+        features:
+          type: array
+          items:
+            $ref: '#/components/schemas/LotFeature'
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
+        status_code:
+          type: integer
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/users/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+            example:
+              username: john_planner
+              password: securePassword123
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+                token_type: bearer
+                user:
+                  id: 123e4567-e89b-12d3-a456-426614174000
+                  username: john_planner
+                  email: john@urbanplanning.com
+                  full_name: John Planner
+                  role: planner
+                  created_at: 2025-01-15T10:30:00Z
+                  updated_at: 2025-01-15T10:30:00Z
+        '401':
+          description: Invalid credentials
+
+  /api/users/register:
+    post:
+      tags:
+        - Authentication
+      summary: User registration
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegister'
+            example:
+              username: jane_designer
+              email: jane@urbanplanning.com
+              password: strongPassword456
+              full_name: Jane Designer
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Registration failed
+
+  /api/users/profile:
+    get:
+      tags:
+        - Users
+      summary: Retrieve user profile
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized
+
+  /api/users/{id}/projects:
+    get:
+      tags:
+        - Users
+      summary: Retrieve all projects for a specific user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Projects retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectList'
+        '404':
+          description: User not found
+
+  /api/projects:
+    get:
+      tags:
+        - Projects
+      summary: Retrieve all projects
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, active, completed, archived]
+      responses:
+        '200':
+          description: Projects retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectList'
+    post:
+      tags:
+        - Projects
+      summary: Create a new project
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreate'
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '400':
+          description: Invalid request
+
+  /api/projects/{id}:
+    get:
+      tags:
+        - Projects
+      summary: Retrieve a specific project by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Project retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Project not found
+    put:
+      tags:
+        - Projects
+      summary: Update an existing project by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdate'
+      responses:
+        '200':
+          description: Project updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Project not found
+    delete:
+      tags:
+        - Projects
+      summary: Delete a project by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Project deleted successfully
+        '404':
+          description: Project not found
+
+  /api/projects/{id}/tasks:
+    get:
+      tags:
+        - Tasks
+      summary: Retrieve all tasks for a specific project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, processing, completed, failed]
+      responses:
+        '200':
+          description: Tasks retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Task'
+        '404':
+          description: Project not found
+
+  /api/projects/{projectId}/tasks:
+    post:
+      tags:
+        - Tasks
+      summary: Create a new task for a specific project
+      parameters:
+        - name: projectId
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskCreate'
+      responses:
+        '201':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '400':
+          description: Invalid request
+
+  /api/tasks/{id}:
+    get:
+      tags:
+        - Tasks
+      summary: Retrieve a specific task by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Task retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '404':
+          description: Task not found
+    put:
+      tags:
+        - Tasks
+      summary: Update an existing task by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TaskUpdate'
+      responses:
+        '200':
+          description: Task updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+        '404':
+          description: Task not found
+    delete:
+      tags:
+        - Tasks
+      summary: Delete a task by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Task deleted successfully
+        '404':
+          description: Task not found
+
+  /api/notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Retrieve all notifications for the current user
+      parameters:
+        - name: read
+          in: query
+          schema:
+            type: boolean
+          description: Filter by read status
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+        '401':
+          description: Unauthorized
+
+  /api/notifications/{id}:
+    put:
+      tags:
+        - Notifications
+      summary: Mark a notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationUpdate'
+      responses:
+        '200':
+          description: Notification updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '404':
+          description: Notification not found
+
+  /api/study-areas:
+    post:
+      tags:
+        - Study Areas
+      summary: Create a new study area
+      description: Create study area with neighbourhood, tissue, and building parameters
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StudyAreaCreate'
+      responses:
+        '201':
+          description: Study area created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyAreaResponse'
+        '400':
+          description: Invalid input parameters
+
+  /api/study-areas/{id}/validate:
+    post:
+      tags:
+        - Study Areas
+      summary: Validate a study area
+      description: Validate geometric contiguity, integrity, and parameter ranges
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Study area identifier
+      responses:
+        '200':
+          description: Validation completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StudyAreaValidation'
+        '404':
+          description: Study area not found
+
+  /api/study-areas/{id}/settlements:
+    get:
+      tags:
+        - Study Areas
+      summary: Retrieve settlements for a study area
+      description: Returns settlement data as GeoJSON with 2D geometries
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Study area identifier
+      responses:
+        '200':
+          description: Settlements retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SettlementCollection'
+        '404':
+          description: Study area not found
+
+  /api/study-areas/{id}/lots:
+    get:
+      tags:
+        - Study Areas
+      summary: Retrieve lots for a study area
+      description: Returns lot data as GeoJSON suitable for Cesium or ThreeJS
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Study area identifier
+      responses:
+        '200':
+          description: Lots retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LotCollection'
+        '404':
+          description: Study area not found
+
+tags:
+  - name: Authentication
+    description: User authentication endpoints
+  - name: Users
+    description: User management endpoints
+  - name: Projects
+    description: Project management endpoints
+  - name: Tasks
+    description: Task management endpoints
+  - name: Notifications
+    description: Notification management endpoints
+  - name: Study Areas
+    description: Study area creation, validation, and analysis endpoints
+

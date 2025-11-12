@@ -1,0 +1,52 @@
+{
+    "neighbourhood": {
+        "public_roads": {
+            "width_of_arteries_m": 20,
+            "width_of_secondaries_m": 15,
+            "width_of_locals_m": 10
+        },
+        "on_grid_partitions": {
+            "depth_along_arteries_m": 40,
+            "depth_along_secondaries_m": 30,
+            "depth_along_locals_m": 20
+        },
+        "off_grid_partitions": {
+            "cluster_depth_m": 45,
+            "cluster_size_lots": 15,
+            "cluster_width_m": 30,
+            "lot_depth_along_path_m": 12.5,
+            "lot_depth_around_yard_m": 10
+        },
+        "urban_block_structure": {
+            "along_arteries": {
+                "off_grid_clusters_in_depth_m": 0,
+                "off_grid_clusters_in_width_m": 3
+            },
+            "along_secondaries": {
+                "off_grid_clusters_in_depth_m": 0,
+                "off_grid_clusters_in_width_m": 3
+            },
+            "along_locals": {
+                "off_grid_clusters_in_depth_m": 2,
+                "off_grid_clusters_in_width_m": 3
+            }
+        },
+        "public_spaces": {
+            "open_spaces": {
+                "open_space_percentage": 0
+            },
+            "amenities": {
+                "amenities_percentage": 10
+            },
+            "street_section": {
+                "sidewalk_width_m": 3
+            },
+            "trees": {
+                "show_trees_frontend": true,
+                "tree_spacing_m": 12,
+                "initial_tree_height_m": 8,
+                "final_tree_height_m": 20
+            }
+        }
+    }
+}

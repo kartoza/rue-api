@@ -1,0 +1,65 @@
+{
+    "starter_buildings": {
+        "on_grid_lots_on_arteries": {
+            "corner_with_other_artery": {
+                "initial_width_percent": 0,
+                "initial_depth_percent": 0,
+                "initial_floors_percent": 0
+            },
+            "corner_with_secondary": {
+                "initial_width_percent": 0,
+                "initial_depth_percent": 0,
+                "initial_floors_percent": 0
+            },
+            "corner_with_tertiary": {
+                "initial_width_percent": 0,
+                "initial_depth_percent": 0,
+                "initial_floors_percent": 0
+            },
+            "regular_lot": {
+                "initial_width_percent": 100,
+                "initial_depth_percent": 60,
+                "initial_floors_percent": 80
+            }
+        },
+        "on_grid_lots_on_secondaries": {
+            "corner_with_other_secondary": {
+                "initial_width_percent": 0,
+                "initial_depth_percent": 0,
+                "initial_floors_percent": 0
+            },
+            "corner_with_tertiary": {
+                "initial_width_percent": 0,
+                "initial_depth_percent": 0,
+                "initial_floors_percent": 0
+            },
+            "regular_lot": {
+                "initial_width_percent": 100,
+                "initial_depth_percent": 60,
+                "initial_floors_percent": 60
+            }
+        },
+        "on_grid_lots_on_locals": {
+            "corner_with_other_local": {
+                "initial_width_percent": 100,
+                "initial_depth_percent": 100,
+                "initial_floors_percent": 100
+            },
+            "regular_lot": {
+                "initial_width_percent": 100,
+                "initial_depth_percent": 60,
+                "initial_floors_percent": 60
+            }
+        },
+        "off_grid_cluster_type_1": {
+            "initial_width_percent": 100,
+            "initial_depth_percent": 50,
+            "initial_floors_percent": 50
+        },
+        "off_grid_cluster_type_2": {
+            "initial_width_percent": 50,
+            "initial_depth_percent": 50,
+            "initial_floors_percent": 50
+        }
+    }
+}
