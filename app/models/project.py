@@ -69,21 +69,18 @@ class Task(SQLModel, table=True):
 
 # Parameter Schemas
 class PublicRoads(SQLModel):
-    """Public roads configuration."""
     width_of_arteries_m: float
     width_of_secondaries_m: float
     width_of_locals_m: float
 
 
 class OnGridPartitions(SQLModel):
-    """On-grid partitions configuration."""
     depth_along_arteries_m: float
     depth_along_secondaries_m: float
     depth_along_locals_m: float
 
 
 class OffGridPartitions(SQLModel):
-    """Off-grid partitions configuration."""
     cluster_depth_m: float
     cluster_size_lots: int
     cluster_width_m: float
@@ -92,35 +89,29 @@ class OffGridPartitions(SQLModel):
 
 
 class BlockStructureConfig(SQLModel):
-    """Block structure configuration."""
     off_grid_clusters_in_depth_m: float
     off_grid_clusters_in_width_m: float
 
 
 class UrbanBlockStructure(SQLModel):
-    """Urban block structure configuration."""
     along_arteries: BlockStructureConfig
     along_secondaries: BlockStructureConfig
     along_locals: BlockStructureConfig
 
 
 class OpenSpaces(SQLModel):
-    """Open spaces configuration."""
     open_space_percentage: float
 
 
 class Amenities(SQLModel):
-    """Amenities configuration."""
     amenities_percentage: float
 
 
 class StreetSection(SQLModel):
-    """Street section configuration."""
     sidewalk_width_m: float
 
 
 class Trees(SQLModel):
-    """Trees configuration."""
     show_trees_frontend: bool
     tree_spacing_m: float
     initial_tree_height_m: float
@@ -128,7 +119,6 @@ class Trees(SQLModel):
 
 
 class PublicSpaces(SQLModel):
-    """Public spaces configuration."""
     open_spaces: OpenSpaces
     amenities: Amenities
     street_section: StreetSection
@@ -136,7 +126,6 @@ class PublicSpaces(SQLModel):
 
 
 class Neighbourhood(SQLModel):
-    """Neighbourhood configuration."""
     public_roads: PublicRoads
     on_grid_partitions: OnGridPartitions
     off_grid_partitions: OffGridPartitions
@@ -145,7 +134,6 @@ class Neighbourhood(SQLModel):
 
 
 class LotConfig(SQLModel):
-    """Lot configuration."""
     depth_m: float
     width_m: float
     front_setback_m: float
@@ -155,7 +143,6 @@ class LotConfig(SQLModel):
 
 
 class OffGridClusterType1(SQLModel):
-    """Off-grid cluster type 1 configuration."""
     access_path_width_on_grid_m: float
     internal_path_width_m: float
     open_space_width_m: float
@@ -168,7 +155,6 @@ class OffGridClusterType1(SQLModel):
 
 
 class OffGridClusterType2(SQLModel):
-    """Off-grid cluster type 2 configuration."""
     internal_path_width_m: float
     cul_de_sac_width_m: float
     lot_width_m: float
@@ -176,7 +162,6 @@ class OffGridClusterType2(SQLModel):
 
 
 class CornerBonus(SQLModel):
-    """Corner bonus configuration."""
     description: str
     with_artery_percent: float
     with_secondary_percent: float
@@ -184,12 +169,10 @@ class CornerBonus(SQLModel):
 
 
 class FireProtection(SQLModel):
-    """Fire protection configuration."""
     fire_proof_partitions_with_6m_margins: bool
 
 
 class Tissue(SQLModel):
-    """Tissue configuration."""
     on_grid_lots_on_arteries: LotConfig
     on_grid_lots_on_secondaries: LotConfig
     on_grid_lots_on_locals: LotConfig
@@ -200,14 +183,12 @@ class Tissue(SQLModel):
 
 
 class InitialBuildingPercent(SQLModel):
-    """Initial building percentage configuration."""
     initial_width_percent: float
     initial_depth_percent: float
     initial_floors_percent: float
 
 
 class StarterBuildingsOnArteries(SQLModel):
-    """Starter buildings on arteries configuration."""
     corner_with_other_artery: InitialBuildingPercent
     corner_with_secondary: InitialBuildingPercent
     corner_with_tertiary: InitialBuildingPercent
@@ -215,20 +196,17 @@ class StarterBuildingsOnArteries(SQLModel):
 
 
 class StarterBuildingsOnSecondaries(SQLModel):
-    """Starter buildings on secondaries configuration."""
     corner_with_other_secondary: InitialBuildingPercent
     corner_with_tertiary: InitialBuildingPercent
     regular_lot: InitialBuildingPercent
 
 
 class StarterBuildingsOnLocals(SQLModel):
-    """Starter buildings on locals configuration."""
     corner_with_other_local: InitialBuildingPercent
     regular_lot: InitialBuildingPercent
 
 
 class StarterBuildings(SQLModel):
-    """Starter buildings configuration."""
     on_grid_lots_on_arteries: StarterBuildingsOnArteries
     on_grid_lots_on_secondaries: StarterBuildingsOnSecondaries
     on_grid_lots_on_locals: StarterBuildingsOnLocals
@@ -237,7 +215,6 @@ class StarterBuildings(SQLModel):
 
 
 class ProjectParameters(SQLModel):
-    """Complete project parameters schema."""
     neighbourhood: Neighbourhood
     tissue: Tissue
     starter_buildings: StarterBuildings

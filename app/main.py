@@ -20,7 +20,7 @@ if settings.SENTRY_DSN and settings.ENVIRONMENT != "local":
     sentry_sdk.init(dsn=str(settings.SENTRY_DSN), enable_tracing=True)
 
 app = FastAPI(
-    title="Urban Planning GIS Platform API",
+    title=settings.PROJECT_NAME,
     description="API for urban planning and GIS operations with FastAPI backend",
     version="1.0.0",
     openapi_url=f"{settings.API_V1_STR}/openapi.json",
@@ -76,31 +76,21 @@ async def get_custom_openapi_yaml():
 
 @app.get("/files/{filename}", tags=["files"])
 async def serve_gltf_file(filename: str) -> FileResponse:
-    """
-    Serve GLTF files from mock directories.
-
-    Maps component filenames to their respective mock directories and serves the files.
-    """
-    # Extract component name from filename (e.g., "streets.gltf" -> "streets")
+    """Serve GLTF files from mock directories."""
     component = filename.replace(".gltf", "")
-
-    # Get the directory for this component
     component_dir = COMPONENT_DIRS.get(component)
     if not component_dir:
         raise HTTPException(status_code=404, detail=f"Component '{component}' not found")
 
-    # Construct the file path
     base_dir = Path(__file__).parent
     file_path = base_dir / "mock" / component_dir / "outputs" / filename
 
-    # Check if file exists
     if not file_path.exists():
         raise HTTPException(
             status_code=404,
             detail=f"File '{filename}' not found in {component_dir}"
         )
 
-    # Serve the file with appropriate headers
     return FileResponse(
         path=file_path,
         media_type="model/gltf+json",

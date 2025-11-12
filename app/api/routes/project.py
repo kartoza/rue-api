@@ -71,11 +71,9 @@ def validate_geojson_feature_collection(data: dict[str, Any], geometry_type: str
     if not isinstance(features, list):
         raise HTTPException(status_code=400, detail="Features must be a list")
 
-    # Validate at least one feature
     if not features:
         raise HTTPException(status_code=400, detail=f"At least one {geometry_type} feature is required")
 
-    # Validate geometry types
     for idx, feature in enumerate(features):
         if not isinstance(feature, dict):
             raise HTTPException(status_code=400, detail=f"Feature {idx} must be an object")
@@ -94,21 +92,13 @@ def validate_geojson_feature_collection(data: dict[str, Any], geometry_type: str
 
 @router.post("/projects", response_model=ProjectResponse, status_code=201)
 def create_project(*, session: SessionDep, project_in: ProjectCreate, request: Request) -> ProjectResponse:
-    """
-    Create a new project.
-
-    Validates GeoJSON inputs and stores project configuration.
-    """
-    # Validate site polygon GeoJSON
+    """Create a new project with GeoJSON validation."""
     if project_in.site is not None:
         validate_geojson_feature_collection(project_in.site, "Polygon")
 
-    # Validate roads linestring GeoJSON
     if project_in.roads is not None:
         validate_geojson_feature_collection(project_in.roads, "LineString")
 
-    # Create project in database
-    # Convert ProjectParameters to dict for storage
     parameters_dict = project_in.parameters.model_dump() if project_in.parameters else {}
 
     project = Project(
@@ -122,7 +112,6 @@ def create_project(*, session: SessionDep, project_in: ProjectCreate, request: R
     session.commit()
     session.refresh(project)
 
-    # Return mock response with site.gltf
     return ProjectResponse(
         project_uuid=project.uuid,
         project_name=project.name,
@@ -134,12 +123,10 @@ def create_project(*, session: SessionDep, project_in: ProjectCreate, request: R
 @router.post("/projects/{id}/streets", response_model=TaskCreateResponse, status_code=202)
 def generate_streets(*, session: SessionDep, id: UUID) -> TaskCreateResponse:
     """Trigger streets generation task."""
-    # Check if project exists
     project = session.get(Project, id)
     if not project:
         raise HTTPException(status_code=404, detail="Project not found")
 
-    # Get or create task with consistent UUID
     task_uuid = MOCK_TASK_UUIDS["streets"]
     task = session.get(Task, task_uuid)
 
