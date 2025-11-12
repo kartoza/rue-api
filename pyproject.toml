@@ -3,8 +3,15 @@ name = "rue-api"
 version = "0.1.0"
 requires-python = ">=3.10"
 dependencies = [
-    "fastapi[standard]<1.0.0,>=0.114.2",
-    "uvicorn[standard]>=0.30,<0.39",
+    "fastapi>=0.114.2,<1.0.0",
+    "uvicorn>=0.30,<0.39",
+    "jinja2>=3.1.4,<4.0.0",
+    "python-multipart>=0.0.7,<1.0.0",
+    "itsdangerous>=2.1.2,<3.0.0",
+    "pydantic>=2.9,<3.0.0",
+    "pydantic-settings>=2.6,<3.0.0",
+    "email-validator>=2.1.0.post1,<3.0.0",
+    "orjson>=3.10",
 
     "python-multipart>=0.0.7,<1.0.0",
     "email-validator>=2.1.0.post1,<3.0.0.0",
@@ -56,7 +63,7 @@ reload = true
 [tool.ruff]
 target-version = "py313"
 line-length = 100
-extend-exclude = ["app/alembic/*", ".venv", "tests/*"]
+extend-exclude = ["app/alembic/*", ".venv", "tests/*", "prompt"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "PL", "RUF"]
@@ -75,3 +82,6 @@ sort = "-Cover"
 
 [tool.coverage.html]
 show_contexts = true
+
+[tool.setuptools]
+packages = ["app"]
