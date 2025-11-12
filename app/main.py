@@ -28,8 +28,8 @@ app = FastAPI(
     redoc_url=f"{settings.API_V1_STR}/redoc",
     generate_unique_id_function=custom_generate_unique_id,
     servers=[
-        {"url": f"http://localhost:8000{settings.API_V1_STR}", "description": "Development server"},
-        {"url": f"https://api.urbanplanning.com{settings.API_V1_STR}", "description": "Production server"},
+        {"url": "http://localhost:8000", "description": "Development server"},
+        {"url": "https://api.urbanplanning.com", "description": "Production server"},
     ],
 )
 

@@ -3,7 +3,7 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, create_engine, Session, select
 
-from app.main import app as fastapi_app          # ✅ the FastAPI() instance
+from app.mock.main import app as fastapi_app          # ✅ the FastAPI() instance
 from app.api.deps import get_db                  # adjust path if different
 import app.models  # noqa: F401                  # ensure models are registered
 

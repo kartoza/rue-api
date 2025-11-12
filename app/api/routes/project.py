@@ -21,7 +21,8 @@ from app.models.project import (
     TaskStatus,
 )
 
-router = APIRouter(tags=["projects"])
+router = APIRouter(tags=["Projects"])
+tasks_router = APIRouter(tags=["Tasks"])
 
 # Mock task UUIDs - consistent across requests for same component
 MOCK_TASK_UUIDS = {
@@ -91,7 +92,7 @@ def validate_geojson_feature_collection(data: dict[str, Any], geometry_type: str
             )
 
 
-@router.post("/api/projects", response_model=ProjectResponse, status_code=201)
+@router.post("/projects", response_model=ProjectResponse, status_code=201)
 def create_project(*, session: SessionDep, project_in: ProjectCreate, request: Request) -> ProjectResponse:
     """
     Create a new project.
@@ -107,11 +108,14 @@ def create_project(*, session: SessionDep, project_in: ProjectCreate, request: R
         validate_geojson_feature_collection(project_in.roads, "LineString")
 
     # Create project in database
+    # Convert ProjectParameters to dict for storage
+    parameters_dict = project_in.parameters.model_dump() if project_in.parameters else {}
+
     project = Project(
         name=project_in.name,
         description=project_in.description,
-        project_metadata=project_in.project_metadata or {},
-        parameters=project_in.parameters or {},
+        metadata=project_in.metadata or {},
+        parameters=parameters_dict,
     )
 
     session.add(project)
@@ -127,7 +131,7 @@ def create_project(*, session: SessionDep, project_in: ProjectCreate, request: R
 
 
 # Component POST endpoints - Generate tasks
-@router.post("/api/projects/{id}/streets", response_model=TaskCreateResponse, status_code=202)
+@router.post("/projects/{id}/streets", response_model=TaskCreateResponse, status_code=202)
 def generate_streets(*, session: SessionDep, id: UUID) -> TaskCreateResponse:
     """Trigger streets generation task."""
     # Check if project exists
@@ -161,7 +165,7 @@ def generate_streets(*, session: SessionDep, id: UUID) -> TaskCreateResponse:
     )
 
 
-@router.post("/api/projects/{id}/clusters", response_model=TaskCreateResponse, status_code=202)
+@router.post("/projects/{id}/clusters", response_model=TaskCreateResponse, status_code=202)
 def generate_clusters(*, session: SessionDep, id: UUID) -> TaskCreateResponse:
     """Trigger clusters generation task."""
     project = session.get(Project, id)
@@ -189,7 +193,7 @@ def generate_clusters(*, session: SessionDep, id: UUID) -> TaskCreateResponse:
     )
 
 
-@router.post("/api/projects/{id}/public", response_model=TaskCreateResponse, status_code=202)
+@router.post("/projects/{id}/public", response_model=TaskCreateResponse, status_code=202)
 def generate_public(*, session: SessionDep, id: UUID) -> TaskCreateResponse:
     """Trigger public spaces generation task."""
     project = session.get(Project, id)
@@ -217,7 +221,7 @@ def generate_public(*, session: SessionDep, id: UUID) -> TaskCreateResponse:
     )
 
 
-@router.post("/api/projects/{id}/subdivision", response_model=TaskCreateResponse, status_code=202)
+@router.post("/projects/{id}/subdivision", response_model=TaskCreateResponse, status_code=202)
 def generate_subdivision(*, session: SessionDep, id: UUID) -> TaskCreateResponse:
     """Trigger subdivision generation task."""
     project = session.get(Project, id)
@@ -243,7 +247,7 @@ def generate_subdivision(*, session: SessionDep, id: UUID) -> TaskCreateResponse
     )
 
 
-@router.post("/api/projects/{id}/footprint", response_model=TaskCreateResponse, status_code=202)
+@router.post("/projects/{id}/footprint", response_model=TaskCreateResponse, status_code=202)
 def generate_footprint(*, session: SessionDep, id: UUID) -> TaskCreateResponse:
     """Trigger footprint generation task."""
     project = session.get(Project, id)
@@ -271,7 +275,7 @@ def generate_footprint(*, session: SessionDep, id: UUID) -> TaskCreateResponse:
     )
 
 
-@router.post("/api/projects/{id}/building-start", response_model=TaskCreateResponse, status_code=202)
+@router.post("/projects/{id}/building-start", response_model=TaskCreateResponse, status_code=202)
 def generate_building_start(*, session: SessionDep, id: UUID) -> TaskCreateResponse:
     """Trigger starter buildings generation task."""
     project = session.get(Project, id)
@@ -299,7 +303,7 @@ def generate_building_start(*, session: SessionDep, id: UUID) -> TaskCreateRespo
     )
 
 
-@router.post("/api/projects/{id}/building-max", response_model=TaskCreateResponse, status_code=202)
+@router.post("/projects/{id}/building-max", response_model=TaskCreateResponse, status_code=202)
 def generate_building_max(*, session: SessionDep, id: UUID) -> TaskCreateResponse:
     """Trigger maximum buildout generation task."""
     project = session.get(Project, id)
@@ -328,43 +332,43 @@ def generate_building_max(*, session: SessionDep, id: UUID) -> TaskCreateRespons
 
 
 # Component GET endpoints - Retrieve results
-@router.get("/api/projects/{id}/streets", response_model=ComponentResponse)
+@router.get("/projects/{id}/streets", response_model=ComponentResponse)
 def get_streets(*, id: UUID, request: Request) -> ComponentResponse:
     """Get the latest streets generation result."""
     return ComponentResponse(file=get_file_url(request, "streets"))
 
 
-@router.get("/api/projects/{id}/clusters", response_model=ComponentResponse)
+@router.get("/projects/{id}/clusters", response_model=ComponentResponse)
 def get_clusters(*, id: UUID, request: Request) -> ComponentResponse:
     """Get the latest clusters generation result."""
     return ComponentResponse(file=get_file_url(request, "clusters"))
 
 
-@router.get("/api/projects/{id}/public", response_model=ComponentResponse)
+@router.get("/projects/{id}/public", response_model=ComponentResponse)
 def get_public(*, id: UUID, request: Request) -> ComponentResponse:
     """Get the latest public spaces generation result."""
     return ComponentResponse(file=get_file_url(request, "public"))
 
 
-@router.get("/api/projects/{id}/subdivision", response_model=ComponentResponse)
+@router.get("/projects/{id}/subdivision", response_model=ComponentResponse)
 def get_subdivision(*, id: UUID, request: Request) -> ComponentResponse:
     """Get the latest subdivision generation result."""
     return ComponentResponse(file=get_file_url(request, "subdivision"))
 
 
-@router.get("/api/projects/{id}/footprint", response_model=ComponentResponse)
+@router.get("/projects/{id}/footprint", response_model=ComponentResponse)
 def get_footprint(*, id: UUID, request: Request) -> ComponentResponse:
     """Get the latest footprint generation result."""
     return ComponentResponse(file=get_file_url(request, "footprint"))
 
 
-@router.get("/api/projects/{id}/building-start", response_model=ComponentResponse)
+@router.get("/projects/{id}/building-start", response_model=ComponentResponse)
 def get_building_start(*, id: UUID, request: Request) -> ComponentResponse:
     """Get the latest starter buildings generation result."""
     return ComponentResponse(file=get_file_url(request, "building_start"))
 
 
-@router.get("/api/projects/{id}/building-max", response_model=ComponentResponse)
+@router.get("/projects/{id}/building-max", response_model=ComponentResponse)
 def get_building_max(*, id: UUID, request: Request) -> ComponentResponse:
     """Get the latest maximum buildout generation result with lucky sheet."""
     return ComponentResponse(
@@ -373,7 +377,7 @@ def get_building_max(*, id: UUID, request: Request) -> ComponentResponse:
 
 
 # Task endpoint
-@router.get("/api/tasks/{id}", response_model=TaskPublic)
+@tasks_router.get("/tasks/{id}", response_model=TaskPublic)
 def get_task(*, session: SessionDep, id: UUID, request: Request) -> TaskPublic:
     """
     Get task status and results.
