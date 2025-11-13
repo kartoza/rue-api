@@ -63,7 +63,7 @@ reload = true
 [tool.ruff]
 target-version = "py313"
 line-length = 100
-extend-exclude = ["app/alembic/*", ".venv", "tests/*", "prompt"]
+extend-exclude = ["app/alembic/*", ".venv", "tests/*"]
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "UP", "B", "SIM", "PL", "RUF"]
