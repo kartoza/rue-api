@@ -1,0 +1,1426 @@
+openapi: 3.0.3
+info:
+  title: Urban Planning GIS Platform API
+  description: API for urban planning and GIS operations with FastAPI backend
+  version: 1.0.0
+  contact:
+    name: Urban Planning Team
+    email: contact@urbanplanning.com
+
+servers:
+  - url: https://api.urbanplanning.com/v1
+    description: Production server
+  - url: http://localhost:8000/v1
+    description: Development server
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+
+  schemas:
+    UserProfile:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        username:
+          type: string
+        email:
+          type: string
+          format: email
+        full_name:
+          type: string
+        role:
+          type: string
+          enum: [admin, planner, viewer]
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    UserLogin:
+      type: object
+      required:
+        - username
+        - password
+      properties:
+        username:
+          type: string
+        password:
+          type: string
+          format: password
+
+    UserRegister:
+      type: object
+      required:
+        - username
+        - email
+        - password
+        - full_name
+      properties:
+        username:
+          type: string
+          minLength: 3
+        email:
+          type: string
+          format: email
+        password:
+          type: string
+          format: password
+          minLength: 8
+        full_name:
+          type: string
+
+    LoginResponse:
+      type: object
+      properties:
+        access_token:
+          type: string
+        token_type:
+          type: string
+          default: bearer
+        user:
+          $ref: '#/components/schemas/UserProfile'
+
+    Project:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        name:
+          type: string
+        description:
+          type: string
+        owner_id:
+          type: string
+          format: uuid
+        status:
+          type: string
+          enum: [draft, active, completed, archived]
+        boundary:
+          type: object
+          description: GeoJSON polygon of project boundary
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        metadata:
+          type: object
+          additionalProperties: true
+
+    ProjectParameters:
+      type: object
+      description: Project configuration parameters for urban planning
+      properties:
+        neighbourhood:
+          type: object
+          properties:
+            public_roads:
+              type: object
+              properties:
+                width_of_arteries_m:
+                  type: number
+                width_of_secondaries_m:
+                  type: number
+                width_of_locals_m:
+                  type: number
+            on_grid_partitions:
+              type: object
+              properties:
+                depth_along_arteries_m:
+                  type: number
+                depth_along_secondaries_m:
+                  type: number
+                depth_along_locals_m:
+                  type: number
+            off_grid_partitions:
+              type: object
+              properties:
+                cluster_depth_m:
+                  type: number
+                cluster_size_lots:
+                  type: integer
+                cluster_width_m:
+                  type: number
+                lot_depth_along_path_m:
+                  type: number
+                lot_depth_around_yard_m:
+                  type: number
+            urban_block_structure:
+              type: object
+              properties:
+                along_arteries:
+                  type: object
+                  properties:
+                    off_grid_clusters_in_depth_m:
+                      type: number
+                    off_grid_clusters_in_width_m:
+                      type: number
+                along_secondaries:
+                  type: object
+                  properties:
+                    off_grid_clusters_in_depth_m:
+                      type: number
+                    off_grid_clusters_in_width_m:
+                      type: number
+                along_locals:
+                  type: object
+                  properties:
+                    off_grid_clusters_in_depth_m:
+                      type: number
+                    off_grid_clusters_in_width_m:
+                      type: number
+            public_spaces:
+              type: object
+              properties:
+                open_spaces:
+                  type: object
+                  properties:
+                    open_space_percentage:
+                      type: number
+                amenities:
+                  type: object
+                  properties:
+                    amenities_percentage:
+                      type: number
+                street_section:
+                  type: object
+                  properties:
+                    sidewalk_width_m:
+                      type: number
+                trees:
+                  type: object
+                  properties:
+                    show_trees_frontend:
+                      type: boolean
+                    tree_spacing_m:
+                      type: number
+                    initial_tree_height_m:
+                      type: number
+                    final_tree_height_m:
+                      type: number
+        tissue:
+          type: object
+          properties:
+            on_grid_lots_on_arteries:
+              type: object
+              properties:
+                depth_m:
+                  type: number
+                width_m:
+                  type: number
+                front_setback_m:
+                  type: number
+                side_margins_m:
+                  type: number
+                rear_setback_m:
+                  type: number
+                number_of_floors:
+                  type: integer
+            on_grid_lots_on_secondaries:
+              type: object
+              properties:
+                depth_m:
+                  type: number
+                width_m:
+                  type: number
+                front_setback_m:
+                  type: number
+                side_margins_m:
+                  type: number
+                rear_setback_m:
+                  type: number
+                number_of_floors:
+                  type: integer
+            on_grid_lots_on_locals:
+              type: object
+              properties:
+                depth_m:
+                  type: number
+                width_m:
+                  type: number
+                front_setback_m:
+                  type: number
+                side_margins_m:
+                  type: number
+                rear_setback_m:
+                  type: number
+                number_of_floors:
+                  type: integer
+            off_grid_cluster_type_1:
+              type: object
+              properties:
+                access_path_width_on_grid_m:
+                  type: number
+                internal_path_width_m:
+                  type: number
+                open_space_width_m:
+                  type: number
+                open_space_length_m:
+                  type: number
+                lot_width_m:
+                  type: number
+                front_setback_m:
+                  type: number
+                side_margins_m:
+                  type: number
+                rear_setback_m:
+                  type: number
+                number_of_floors:
+                  type: integer
+            off_grid_cluster_type_2:
+              type: object
+              properties:
+                internal_path_width_m:
+                  type: number
+                cul_de_sac_width_m:
+                  type: number
+                lot_width_m:
+                  type: number
+                lot_depth_behind_cul_de_sac_m:
+                  type: number
+            corner_bonus:
+              type: object
+              properties:
+                description:
+                  type: string
+                with_artery_percent:
+                  type: number
+                with_secondary_percent:
+                  type: number
+                with_local_percent:
+                  type: number
+            fire_protection:
+              type: object
+              properties:
+                fire_proof_partitions_with_6m_margins:
+                  type: boolean
+        starter_buildings:
+          type: object
+          properties:
+            on_grid_lots_on_arteries:
+              type: object
+              properties:
+                corner_with_other_artery:
+                  type: object
+                  properties:
+                    initial_width_percent:
+                      type: number
+                    initial_depth_percent:
+                      type: number
+                    initial_floors_percent:
+                      type: number
+                corner_with_secondary:
+                  type: object
+                  properties:
+                    initial_width_percent:
+                      type: number
+                    initial_depth_percent:
+                      type: number
+                    initial_floors_percent:
+                      type: number
+                corner_with_tertiary:
+                  type: object
+                  properties:
+                    initial_width_percent:
+                      type: number
+                    initial_depth_percent:
+                      type: number
+                    initial_floors_percent:
+                      type: number
+                regular_lot:
+                  type: object
+                  properties:
+                    initial_width_percent:
+                      type: number
+                    initial_depth_percent:
+                      type: number
+                    initial_floors_percent:
+                      type: number
+            on_grid_lots_on_secondaries:
+              type: object
+              properties:
+                corner_with_other_secondary:
+                  type: object
+                  properties:
+                    initial_width_percent:
+                      type: number
+                    initial_depth_percent:
+                      type: number
+                    initial_floors_percent:
+                      type: number
+                corner_with_tertiary:
+                  type: object
+                  properties:
+                    initial_width_percent:
+                      type: number
+                    initial_depth_percent:
+                      type: number
+                    initial_floors_percent:
+                      type: number
+                regular_lot:
+                  type: object
+                  properties:
+                    initial_width_percent:
+                      type: number
+                    initial_depth_percent:
+                      type: number
+                    initial_floors_percent:
+                      type: number
+            on_grid_lots_on_locals:
+              type: object
+              properties:
+                corner_with_other_local:
+                  type: object
+                  properties:
+                    initial_width_percent:
+                      type: number
+                    initial_depth_percent:
+                      type: number
+                    initial_floors_percent:
+                      type: number
+                regular_lot:
+                  type: object
+                  properties:
+                    initial_width_percent:
+                      type: number
+                    initial_depth_percent:
+                      type: number
+                    initial_floors_percent:
+                      type: number
+            off_grid_cluster_type_1:
+              type: object
+              properties:
+                initial_width_percent:
+                  type: number
+                initial_depth_percent:
+                  type: number
+                initial_floors_percent:
+                  type: number
+            off_grid_cluster_type_2:
+              type: object
+              properties:
+                initial_width_percent:
+                  type: number
+                initial_depth_percent:
+                  type: number
+                initial_floors_percent:
+                  type: number
+
+    ProjectCreate:
+      type: object
+      required:
+        - name
+        - site
+        - roads
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        site:
+          type: object
+          description: Site polygon GeoJSON
+        roads:
+          type: object
+          description: Roads linestring GeoJSON
+        parameters:
+          $ref: '#/components/schemas/ProjectParameters'
+        metadata:
+          type: object
+          additionalProperties: true
+
+    ProjectResponse:
+      type: object
+      properties:
+        project_uuid:
+          type: string
+          format: uuid
+        project_name:
+          type: string
+        file:
+          type: string
+          format: uri
+          description: URL for site.gltf
+
+    ProjectUpdate:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        status:
+          type: string
+          enum: [draft, active, completed, archived]
+        boundary:
+          type: object
+        metadata:
+          type: object
+          additionalProperties: true
+
+    ProjectList:
+      type: object
+      properties:
+        total:
+          type: integer
+        page:
+          type: integer
+        page_size:
+          type: integer
+        projects:
+          type: array
+          items:
+            $ref: '#/components/schemas/Project'
+
+    Task:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Task identifier
+        project_id:
+          type: string
+          format: uuid
+          description: Project identifier
+        component_type:
+          type: string
+          enum: [streets, clusters, public, subdivision, footprint, building_start, building_max]
+          description: Type of component being generated
+        status:
+          type: string
+          enum: [pending, processing, completed, failed]
+          description: Current status of the task
+        file:
+          type: string
+          format: uri
+          description: URL to the generated GLTF file (only available when status is completed)
+        lucky_sheet:
+          type: object
+          description: Lucky sheet data (only for building_max component when completed)
+        error_message:
+          type: string
+          description: Error details if status is failed
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+
+    TaskCreateResponse:
+      type: object
+      properties:
+        task_id:
+          type: string
+          format: uuid
+          description: Unique identifier for the created task
+        status:
+          type: string
+          enum: [pending, processing]
+          description: Initial status of the task
+        message:
+          type: string
+          description: Confirmation message
+
+    ComponentResponse:
+      type: object
+      properties:
+        file:
+          type: string
+          format: uri
+          description: URL to the component GLTF file
+        lucky_sheet:
+          type: object
+          description: Lucky sheet data (only for building_max component)
+
+    Notification:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        message:
+          type: string
+        type:
+          type: string
+          enum: [info, warning, error, success]
+        read:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+
+    NotificationUpdate:
+      type: object
+      properties:
+        read:
+          type: boolean
+
+    Error:
+      type: object
+      properties:
+        error:
+          type: string
+        detail:
+          type: string
+        status_code:
+          type: integer
+
+security:
+  - BearerAuth: []
+
+paths:
+  /api/users/login:
+    post:
+      tags:
+        - Authentication
+      summary: User login
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserLogin'
+            example:
+              username: john_planner
+              password: securePassword123
+      responses:
+        '200':
+          description: Successful login
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/LoginResponse'
+              example:
+                access_token: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9
+                token_type: bearer
+                user:
+                  id: 123e4567-e89b-12d3-a456-426614174000
+                  username: john_planner
+                  email: john@urbanplanning.com
+                  full_name: John Planner
+                  role: planner
+                  created_at: 2025-01-15T10:30:00Z
+                  updated_at: 2025-01-15T10:30:00Z
+        '401':
+          description: Invalid credentials
+
+  /api/users/register:
+    post:
+      tags:
+        - Authentication
+      summary: User registration
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UserRegister'
+            example:
+              username: jane_designer
+              email: jane@urbanplanning.com
+              password: strongPassword456
+              full_name: Jane Designer
+      responses:
+        '201':
+          description: User registered successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '400':
+          description: Registration failed
+
+  /api/users/profile:
+    get:
+      tags:
+        - Users
+      summary: Retrieve user profile
+      responses:
+        '200':
+          description: User profile retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/UserProfile'
+        '401':
+          description: Unauthorized
+
+  /api/users/{id}/projects:
+    get:
+      tags:
+        - Users
+      summary: Retrieve all projects for a specific user
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+      responses:
+        '200':
+          description: Projects retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectList'
+        '404':
+          description: User not found
+
+  /api/projects:
+    get:
+      tags:
+        - Projects
+      summary: Retrieve all projects
+      parameters:
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+        - name: page_size
+          in: query
+          schema:
+            type: integer
+            default: 20
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [draft, active, completed, archived]
+      responses:
+        '200':
+          description: Projects retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectList'
+    post:
+      tags:
+        - Projects
+      summary: Create a new project
+      description: Create a new project with site polygon and roads linestring GeoJSON data
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectCreate'
+            example:
+              name: "Test Project"
+              description: "Urban planning project example"
+              site: null
+              roads: null
+              parameters:
+                neighbourhood:
+                  public_roads:
+                    width_of_arteries_m: 20
+                    width_of_secondaries_m: 15
+                    width_of_locals_m: 10
+                  on_grid_partitions:
+                    depth_along_arteries_m: 40
+                    depth_along_secondaries_m: 30
+                    depth_along_locals_m: 20
+                  off_grid_partitions:
+                    cluster_depth_m: 45
+                    cluster_size_lots: 15
+                    cluster_width_m: 30
+                    lot_depth_along_path_m: 12.5
+                    lot_depth_around_yard_m: 10
+                  urban_block_structure:
+                    along_arteries:
+                      off_grid_clusters_in_depth_m: 0
+                      off_grid_clusters_in_width_m: 3
+                    along_secondaries:
+                      off_grid_clusters_in_depth_m: 0
+                      off_grid_clusters_in_width_m: 3
+                    along_locals:
+                      off_grid_clusters_in_depth_m: 2
+                      off_grid_clusters_in_width_m: 3
+                  public_spaces:
+                    open_spaces:
+                      open_space_percentage: 0
+                    amenities:
+                      amenities_percentage: 10
+                    street_section:
+                      sidewalk_width_m: 3
+                    trees:
+                      show_trees_frontend: true
+                      tree_spacing_m: 12
+                      initial_tree_height_m: 8
+                      final_tree_height_m: 20
+                tissue:
+                  on_grid_lots_on_arteries:
+                    depth_m: 40
+                    width_m: 40
+                    front_setback_m: 6
+                    side_margins_m: 6
+                    rear_setback_m: 6
+                    number_of_floors: 5
+                  on_grid_lots_on_secondaries:
+                    depth_m: 30
+                    width_m: 20
+                    front_setback_m: 3
+                    side_margins_m: 3
+                    rear_setback_m: 3
+                    number_of_floors: 4
+                  on_grid_lots_on_locals:
+                    depth_m: 20
+                    width_m: 10
+                    front_setback_m: 0
+                    side_margins_m: 0
+                    rear_setback_m: 3
+                    number_of_floors: 3
+                  off_grid_cluster_type_1:
+                    access_path_width_on_grid_m: 3
+                    internal_path_width_m: 5
+                    open_space_width_m: 10
+                    open_space_length_m: 15
+                    lot_width_m: 6
+                    front_setback_m: 0
+                    side_margins_m: 0
+                    rear_setback_m: 3
+                    number_of_floors: 2
+                  off_grid_cluster_type_2:
+                    internal_path_width_m: 3
+                    cul_de_sac_width_m: 5
+                    lot_width_m: 4.5
+                    lot_depth_behind_cul_de_sac_m: 15
+                  corner_bonus:
+                    description: "Density (floor) bonus at intersection"
+                    with_artery_percent: 40
+                    with_secondary_percent: 30
+                    with_local_percent: 20
+                  fire_protection:
+                    fire_proof_partitions_with_6m_margins: false
+                starter_buildings:
+                  on_grid_lots_on_arteries:
+                    corner_with_other_artery:
+                      initial_width_percent: 0
+                      initial_depth_percent: 0
+                      initial_floors_percent: 0
+                    corner_with_secondary:
+                      initial_width_percent: 0
+                      initial_depth_percent: 0
+                      initial_floors_percent: 0
+                    corner_with_tertiary:
+                      initial_width_percent: 0
+                      initial_depth_percent: 0
+                      initial_floors_percent: 0
+                    regular_lot:
+                      initial_width_percent: 100
+                      initial_depth_percent: 60
+                      initial_floors_percent: 80
+                  on_grid_lots_on_secondaries:
+                    corner_with_other_secondary:
+                      initial_width_percent: 0
+                      initial_depth_percent: 0
+                      initial_floors_percent: 0
+                    corner_with_tertiary:
+                      initial_width_percent: 0
+                      initial_depth_percent: 0
+                      initial_floors_percent: 0
+                    regular_lot:
+                      initial_width_percent: 100
+                      initial_depth_percent: 60
+                      initial_floors_percent: 60
+                  on_grid_lots_on_locals:
+                    corner_with_other_local:
+                      initial_width_percent: 100
+                      initial_depth_percent: 100
+                      initial_floors_percent: 100
+                    regular_lot:
+                      initial_width_percent: 100
+                      initial_depth_percent: 60
+                      initial_floors_percent: 60
+                  off_grid_cluster_type_1:
+                    initial_width_percent: 100
+                    initial_depth_percent: 50
+                    initial_floors_percent: 50
+                  off_grid_cluster_type_2:
+                    initial_width_percent: 50
+                    initial_depth_percent: 50
+                    initial_floors_percent: 50
+              metadata:
+                example-metadata: True
+      responses:
+        '201':
+          description: Project created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProjectResponse'
+        '400':
+          description: Invalid request
+
+  /api/projects/{id}:
+    get:
+      tags:
+        - Projects
+      summary: Retrieve a specific project by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Project retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Project not found
+    put:
+      tags:
+        - Projects
+      summary: Update an existing project by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProjectUpdate'
+      responses:
+        '200':
+          description: Project updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Project'
+        '404':
+          description: Project not found
+    delete:
+      tags:
+        - Projects
+      summary: Delete a project by ID
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '204':
+          description: Project deleted successfully
+        '404':
+          description: Project not found
+
+  /api/projects/{id}/streets:
+    get:
+      tags:
+        - Projects
+      summary: Retrieve streets result for a specific project
+      description: Get the latest completed streets generation result
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '200':
+          description: Streets result retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentResponse'
+              example:
+                file: "https://api.urbanplanning.com/files/streets.gltf"
+        '404':
+          description: Project not found or no completed streets generation
+    post:
+      tags:
+        - Projects
+      summary: Generate streets for a specific project
+      description: Trigger streets generation task for the project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '202':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCreateResponse'
+        '404':
+          description: Project not found
+
+  /api/projects/{id}/clusters:
+    get:
+      tags:
+        - Projects
+      summary: Retrieve clusters result for a specific project
+      description: Get the latest completed clusters generation result
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '200':
+          description: Clusters result retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentResponse'
+              example:
+                file: "https://api.urbanplanning.com/files/clusters.gltf"
+        '404':
+          description: Project not found or no completed clusters generation
+    post:
+      tags:
+        - Projects
+      summary: Generate clusters for a specific project
+      description: Trigger cluster generation task for the project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '202':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCreateResponse'
+        '404':
+          description: Project not found
+
+  /api/projects/{id}/public:
+    get:
+      tags:
+        - Projects
+      summary: Retrieve public spaces result for a specific project
+      description: Get the latest completed public spaces generation result
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '200':
+          description: Public spaces result retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentResponse'
+              example:
+                file: "https://api.urbanplanning.com/files/public.gltf"
+        '404':
+          description: Project not found or no completed public spaces generation
+    post:
+      tags:
+        - Projects
+      summary: Generate public spaces for a specific project
+      description: Trigger public spaces generation task for the project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '202':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCreateResponse'
+        '404':
+          description: Project not found
+
+  /api/projects/{id}/subdivision:
+    get:
+      tags:
+        - Projects
+      summary: Retrieve subdivision result for a specific project
+      description: Get the latest completed subdivision generation result
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '200':
+          description: Subdivision result retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentResponse'
+              example:
+                file: "https://api.urbanplanning.com/files/subdivision.gltf"
+        '404':
+          description: Project not found or no completed subdivision generation
+    post:
+      tags:
+        - Projects
+      summary: Generate subdivision for a specific project
+      description: Trigger subdivision generation task for the project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '202':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCreateResponse'
+        '404':
+          description: Project not found
+
+  /api/projects/{id}/footprint:
+    get:
+      tags:
+        - Projects
+      summary: Retrieve footprint result for a specific project
+      description: Get the latest completed footprint generation result
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '200':
+          description: Footprint result retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentResponse'
+              example:
+                file: "https://api.urbanplanning.com/files/footprint.gltf"
+        '404':
+          description: Project not found or no completed footprint generation
+    post:
+      tags:
+        - Projects
+      summary: Generate footprint for a specific project
+      description: Trigger building footprint generation task for the project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '202':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCreateResponse'
+        '404':
+          description: Project not found
+
+  /api/projects/{id}/building-start:
+    get:
+      tags:
+        - Projects
+      summary: Retrieve starter buildings result for a specific project
+      description: Get the latest completed starter buildings generation result
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '200':
+          description: Starter buildings result retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentResponse'
+              example:
+                file: "https://api.urbanplanning.com/files/building_start.gltf"
+        '404':
+          description: Project not found or no completed starter buildings generation
+    post:
+      tags:
+        - Projects
+      summary: Generate starter buildings for a specific project
+      description: Trigger starter buildings generation task for the project
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '202':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCreateResponse'
+        '404':
+          description: Project not found
+
+  /api/projects/{id}/building-max:
+    get:
+      tags:
+        - Projects
+      summary: Retrieve maximum buildout result for a specific project
+      description: Get the latest completed maximum buildout generation result with lucky sheet data
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '200':
+          description: Maximum buildout result retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ComponentResponse'
+              example:
+                file: "https://api.urbanplanning.com/files/building_max.gltf"
+                lucky_sheet: {}
+        '404':
+          description: Project not found or no completed maximum buildout generation
+    post:
+      tags:
+        - Projects
+      summary: Generate maximum buildout for a specific project
+      description: Trigger maximum buildout generation task for the project (includes lucky sheet data)
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Project identifier
+      responses:
+        '202':
+          description: Task created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/TaskCreateResponse'
+        '404':
+          description: Project not found
+
+  /api/tasks/{id}:
+    get:
+      tags:
+        - Tasks
+      summary: Retrieve task status and results
+      description: Get the current status and results of a generation task
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+          description: Task identifier
+      responses:
+        '200':
+          description: Task retrieved successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Task'
+              examples:
+                pending:
+                  summary: Task is pending
+                  value:
+                    id: "123e4567-e89b-12d3-a456-426614174000"
+                    project_id: "123e4567-e89b-12d3-a456-426614174001"
+                    component_type: "streets"
+                    status: "pending"
+                    created_at: "2025-01-15T10:30:00Z"
+                    updated_at: "2025-01-15T10:30:00Z"
+                processing:
+                  summary: Task is processing
+                  value:
+                    id: "123e4567-e89b-12d3-a456-426614174000"
+                    project_id: "123e4567-e89b-12d3-a456-426614174001"
+                    component_type: "streets"
+                    status: "processing"
+                    created_at: "2025-01-15T10:30:00Z"
+                    updated_at: "2025-01-15T10:30:15Z"
+                completed:
+                  summary: Task completed successfully
+                  value:
+                    id: "123e4567-e89b-12d3-a456-426614174000"
+                    project_id: "123e4567-e89b-12d3-a456-426614174001"
+                    component_type: "streets"
+                    status: "completed"
+                    file: "https://api.urbanplanning.com/files/streets.gltf"
+                    created_at: "2025-01-15T10:30:00Z"
+                    updated_at: "2025-01-15T10:35:00Z"
+                    completed_at: "2025-01-15T10:35:00Z"
+                completed_with_lucky_sheet:
+                  summary: Building max task completed with lucky sheet
+                  value:
+                    id: "123e4567-e89b-12d3-a456-426614174000"
+                    project_id: "123e4567-e89b-12d3-a456-426614174001"
+                    component_type: "building_max"
+                    status: "completed"
+                    file: "https://api.urbanplanning.com/files/building_max.gltf"
+                    lucky_sheet: {}
+                    created_at: "2025-01-15T10:30:00Z"
+                    updated_at: "2025-01-15T10:40:00Z"
+                    completed_at: "2025-01-15T10:40:00Z"
+                failed:
+                  summary: Task failed
+                  value:
+                    id: "123e4567-e89b-12d3-a456-426614174000"
+                    project_id: "123e4567-e89b-12d3-a456-426614174001"
+                    component_type: "streets"
+                    status: "failed"
+                    error_message: "Invalid geometry in input data"
+                    created_at: "2025-01-15T10:30:00Z"
+                    updated_at: "2025-01-15T10:32:00Z"
+        '404':
+          description: Task not found
+
+  /api/notifications:
+    get:
+      tags:
+        - Notifications
+      summary: Retrieve all notifications for the current user
+      parameters:
+        - name: read
+          in: query
+          schema:
+            type: boolean
+          description: Filter by read status
+      responses:
+        '200':
+          description: Notifications retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/Notification'
+        '401':
+          description: Unauthorized
+
+  /api/notifications/{id}:
+    put:
+      tags:
+        - Notifications
+      summary: Mark a notification as read
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/NotificationUpdate'
+      responses:
+        '200':
+          description: Notification updated successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Notification'
+        '404':
+          description: Notification not found
+
+tags:
+  - name: Authentication
+    description: User authentication endpoints
+  - name: Users
+    description: User management endpoints
+  - name: Projects
+    description: Project management endpoints with component generation (streets, clusters, public spaces, subdivision, footprint, buildings)
+  - name: Tasks
+    description: Task status and result retrieval endpoints for asynchronous component generation
+  - name: Notifications
+    description: Notification management endpoints
