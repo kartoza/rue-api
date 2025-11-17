@@ -8,7 +8,6 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from app.api.deps import SessionDep
-from app.core.config import settings
 from app.models.project import (
     ComponentResponse,
     ComponentType,
@@ -18,7 +17,6 @@ from app.models.project import (
     TaskCreateResponse,
     Project
 )
-from app.tasks.generate_rue import (generate_rue, STEPS, process_folder_name)
 
 router = APIRouter(tags=["Projects"])
 
@@ -98,7 +96,7 @@ def create_project(
     project.save_to_file()
 
     # Run task
-    generate_rue(project.folder, 0)
+    project.generate()
     url = str(
         request.url_for(
             "get_project_file",
@@ -127,12 +125,9 @@ def get_project_file(
         extension: ExtensionType,
 ) -> FileResponse:
     """Trigger a single step of a project generation task."""
-    index = STEPS.index(step)
-    base_dir = settings.PROJECT_FILE_DIR / str(uuid) / process_folder_name(
-        index
-    )
+    project = Project(uuid=uuid)
     filename = f"{step.value}.{extension.value}"
-    file_path = base_dir / filename
+    file_path = project.get_file_path(step, extension)
     if not file_path.exists():
         raise HTTPException(
             status_code=404,

@@ -3,18 +3,7 @@ import shutil
 import uuid as uuid_pkg
 from pathlib import Path
 
-from app.models.project import ComponentType
-
-STEPS = [
-    ComponentType.SITE.value,
-    ComponentType.STREETS.value,
-    ComponentType.CLUSTERS.value,
-    ComponentType.PUBLIC.value,
-    ComponentType.SUBDIVISION.value,
-    ComponentType.FOOTPRINT.value,
-    ComponentType.BUILDING_START.value,
-    ComponentType.BUILDING_MAX.value
-]
+from app.models.project import STEPS
 
 
 def process_folder_name(step_idx: int) -> str:

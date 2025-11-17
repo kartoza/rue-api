@@ -1,14 +1,13 @@
 """Project and Task models for urban planning GIS platform."""
 
 import json
-import uuid as uuid_pkg
 from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
 
-from sqlmodel import Column, Field, JSON, SQLModel
+from sqlmodel import Field, SQLModel
 
 from app.core.config import settings
 
@@ -42,19 +41,27 @@ class ExtensionType(str, Enum):
     GLTF = "gltf"
 
 
+STEPS = [
+    ComponentType.SITE.value,
+    ComponentType.STREETS.value,
+    ComponentType.CLUSTERS.value,
+    ComponentType.PUBLIC.value,
+    ComponentType.SUBDIVISION.value,
+    ComponentType.FOOTPRINT.value,
+    ComponentType.BUILDING_START.value,
+    ComponentType.BUILDING_MAX.value
+]
+
+
 # Database Models
 class Project:
     """Project model."""
 
-    uuid: UUID = Field(default_factory=uuid_pkg.uuid4, primary_key=True)
-    name: str = Field(description="Project name")
-    description: Optional[str] = Field(
-        default=None, description="Project description"
-    )
-    parameters: dict[str, Any] = Field(sa_column=Column(JSON))
-    project_metadata: dict[str, Any] = Field(
-        default_factory=dict, sa_column=Column("metadata", JSON)
-    )
+    uuid: UUID
+    name: str
+    description: Optional[str] = None
+    parameters: dict[str, Any] = {}
+    project_metadata: dict[str, Any] = {}
 
     def __init__(self, uuid):
         """Initialize the project model."""
@@ -67,8 +74,8 @@ class Project:
             self.project_metadata = json.loads(
                 self.file_path_metadata.read_text()
             )
-
-        self.folder.mkdir(parents=True, exist_ok=True)
+        else:
+            self.folder.mkdir(parents=True, exist_ok=True)
 
     @property
     def file_path_name(self) -> Path:
@@ -96,9 +103,25 @@ class Project:
         self.file_path_name.write_text(self.name)
         self.file_path_description.write_text(self.description or "")
         self.file_path_parameters.write_text(
-            json.dumps(self.parameters, indent=2))
+            json.dumps(self.parameters or {}, indent=2))
         self.file_path_metadata.write_text(
             json.dumps(self.project_metadata or {}, indent=2))
+
+    def generate(self):
+        """Generate the project."""
+        from app.tasks.generate_rue import generate_rue
+        generate_rue(self.folder, 0)
+
+    def get_step_folder(self, step_idx):
+        """Return the folder for the current step."""
+        return self.folder / f"{step_idx:02}-{STEPS[step_idx]}"
+
+    def get_file_path(self, step: ComponentType, extension):
+        """Get the project file."""
+        index = STEPS.index(step.value)
+        base_dir = self.get_step_folder(index)
+        filename = f"{step.value}.{extension.value}"
+        return base_dir / filename
 
 
 # Parameter Schemas
