@@ -52,19 +52,6 @@ async def root():
     return RedirectResponse(url=f"{settings.API_V1_STR}/docs")
 
 
-# Component to directory mapping
-COMPONENT_DIRS = {
-    "site": "00-site",
-    "streets": "01-streets",
-    "clusters": "02-clusters",
-    "public": "03-public",
-    "subdivision": "04-subdivision",
-    "footprint": "05-footprint",
-    "building_start": "06-building_start",
-    "building_max": "07-building_max",
-}
-
-
 @app.get(f"{settings.API_V1_STR}/openapi.yaml", include_in_schema=False)
 async def get_custom_openapi_yaml():
     """Serve the custom OpenAPI YAML specification."""
@@ -72,27 +59,3 @@ async def get_custom_openapi_yaml():
     if yaml_path.exists():
         return FileResponse(yaml_path, media_type="application/x-yaml")
     raise HTTPException(status_code=404, detail="OpenAPI YAML not found")
-
-
-@app.get("/files/{filename}", tags=["files"])
-async def serve_gltf_file(filename: str) -> FileResponse:
-    """Serve GLTF files from mock directories."""
-    component = filename.replace(".gltf", "")
-    component_dir = COMPONENT_DIRS.get(component)
-    if not component_dir:
-        raise HTTPException(status_code=404, detail=f"Component '{component}' not found")
-
-    base_dir = Path(__file__).parent
-    file_path = base_dir / "mock" / component_dir / "outputs" / filename
-
-    if not file_path.exists():
-        raise HTTPException(
-            status_code=404,
-            detail=f"File '{filename}' not found in {component_dir}"
-        )
-
-    return FileResponse(
-        path=file_path,
-        media_type="model/gltf+json",
-        filename=filename,
-    )

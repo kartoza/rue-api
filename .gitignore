@@ -56,3 +56,6 @@ app/alembic/*.sqlite
 
 # Jupyter
 .ipynb_checkpoints/
+
+# Media
+files

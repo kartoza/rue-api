@@ -1,12 +1,16 @@
 """Project and Task models for urban planning GIS platform."""
 
+import json
 import uuid as uuid_pkg
-from datetime import datetime, timezone
+from datetime import datetime
 from enum import Enum
+from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
 
-from sqlmodel import Column, Field, JSON, Relationship, SQLModel
+from sqlmodel import Column, Field, JSON, SQLModel
+
+from app.core.config import settings
 
 
 class TaskStatus(str, Enum):
@@ -21,6 +25,7 @@ class TaskStatus(str, Enum):
 class ComponentType(str, Enum):
     """Component type enumeration."""
 
+    SITE = "site"
     STREETS = "streets"
     CLUSTERS = "clusters"
     PUBLIC = "public"
@@ -30,41 +35,70 @@ class ComponentType(str, Enum):
     BUILDING_MAX = "building_max"
 
 
-# Database Models
-class Project(SQLModel, table=True):
-    """Project database model."""
+class ExtensionType(str, Enum):
+    """Extension type enumeration."""
 
-    __tablename__ = "projects"
+    GEOJSON = "geojson"
+    GLTF = "gltf"
+
+
+# Database Models
+class Project:
+    """Project model."""
 
     uuid: UUID = Field(default_factory=uuid_pkg.uuid4, primary_key=True)
     name: str = Field(description="Project name")
-    description: Optional[str] = Field(default=None, description="Project description")
+    description: Optional[str] = Field(
+        default=None, description="Project description"
+    )
+    parameters: dict[str, Any] = Field(sa_column=Column(JSON))
     project_metadata: dict[str, Any] = Field(
         default_factory=dict, sa_column=Column("metadata", JSON)
     )
-    parameters: dict[str, Any] = Field(sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
 
-    # Relationships
-    tasks: list["Task"] = Relationship(back_populates="project")
+    def __init__(self, uuid):
+        """Initialize the project model."""
+        self.uuid = uuid
+        self.folder = settings.PROJECT_FILE_DIR / str(uuid)
+        if Path.exists(self.folder):
+            self.name = self.file_path_name.read_text()
+            self.description = self.file_path_description.read_text()
+            self.parameters = json.loads(self.file_path_parameters.read_text())
+            self.project_metadata = json.loads(
+                self.file_path_metadata.read_text()
+            )
 
+        self.folder.mkdir(parents=True, exist_ok=True)
 
-class Task(SQLModel, table=True):
-    """Task database model."""
+    @property
+    def file_path_name(self) -> Path:
+        """Return name"""
+        return self.folder / "name"
 
-    __tablename__ = "tasks"
+    @property
+    def file_path_description(self) -> Path:
+        """Return description"""
+        return self.folder / "description"
 
-    uuid: UUID = Field(default_factory=uuid_pkg.uuid4, primary_key=True)
-    name: str = Field(description="Task name")
-    project_uuid: UUID = Field(foreign_key="projects.uuid")
-    status: TaskStatus = Field(default=TaskStatus.PENDING)
-    component_type: ComponentType = Field(description="Type of component being generated")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+    @property
+    def file_path_parameters(self) -> Path:
+        """Return parameters.json"""
+        return self.folder / "parameters.json"
 
-    # Relationships
-    project: Project = Relationship(back_populates="tasks")
+    @property
+    def file_path_metadata(self) -> Path:
+        """Return metadata.json"""
+        return self.folder / "metadata.json"
+
+    def save_to_file(self):
+        """Save the project to a file."""
+        # Save data to files
+        self.file_path_name.write_text(self.name)
+        self.file_path_description.write_text(self.description or "")
+        self.file_path_parameters.write_text(
+            json.dumps(self.parameters, indent=2))
+        self.file_path_metadata.write_text(
+            json.dumps(self.project_metadata or {}, indent=2))
 
 
 # Parameter Schemas
@@ -421,18 +455,6 @@ class ProjectResponse(SQLModel):
     project_uuid: UUID
     project_name: str
     file: str
-
-
-class ProjectPublic(SQLModel):
-    """Schema for public project data."""
-
-    uuid: UUID
-    name: str
-    description: Optional[str] = None
-    project_metadata: dict[str, Any] = Field(alias="metadata")
-    parameters: dict[str, Any]
-    created_at: datetime
-    updated_at: datetime
 
 
 class TaskCreateResponse(SQLModel):

@@ -1,5 +1,6 @@
 import secrets
 import warnings
+from pathlib import Path
 from typing import Annotated, Any, Literal, Self
 
 from pydantic import (
@@ -123,5 +124,8 @@ class Settings(BaseSettings):
         self._check_default_secret("FIRST_SUPERUSER_PASSWORD", self.FIRST_SUPERUSER_PASSWORD)
         return self
 
+    PROJECT_FILE_DIR: Path = Path("files/project")
+
 
 settings = Settings()  # type: ignore
+settings.PROJECT_FILE_DIR.mkdir(parents=True, exist_ok=True)
