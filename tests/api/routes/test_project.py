@@ -2,10 +2,13 @@
 
 import unittest
 import uuid as uuid_pkg
+from pathlib import Path
 from uuid import UUID
 
 from sqlmodel import Session, SQLModel, create_engine
 
+from app.core import config
+from app.core.config_test import TestSettings
 from app.models.project import (
     Amenities,
     BlockStructureConfig,
@@ -32,7 +35,7 @@ from app.models.project import (
     StreetSection,
     Tissue,
     Trees,
-    UrbanBlockStructure,
+    UrbanBlockStructure, ExtensionType,
 )
 
 
@@ -53,6 +56,7 @@ class TestProjectModel(unittest.TestCase):
         """Test creating a project with minimal required fields."""
         # Given
         uuid = uuid_pkg.uuid4()
+        Project.create(uuid)
         project = Project(uuid=uuid)
         project.name = "Test Project"
         project.description = "A test project"
@@ -68,28 +72,28 @@ class TestProjectModel(unittest.TestCase):
     def test_create_project_with_parameters(self):
         """Test creating a project with full parameters."""
         # Given
-        parameters = {
-            "neighbourhood": {
-                "public_roads": {
-                    "width_of_arteries_m": 20,
-                    "width_of_secondaries_m": 15,
-                    "width_of_locals_m": 10,
-                }
-            }
-        }
+        parameters = (
+            ProjectCreate.model_config["json_schema_extra"]["examples"][0][
+                "parameters"]
+        )
         uuid = uuid_pkg.uuid4()
+        Project.create(uuid)
         project = Project(uuid=uuid)
         project.name = "Full Test Project"
         project.description = "Project with parameters"
         project.project_metadata = {"author": "test"}
-        project.parameters = parameters
+        project.insert_parameters(parameters)
         project.save_to_file()
 
         project = Project(uuid=uuid)
         # Then
         self.assertEqual(
-            project.parameters["neighbourhood"]["public_roads"][
-                "width_of_arteries_m"], 20
+            project.parameters.neighbourhood.public_roads.width_of_arteries_m,
+            20
+        )
+        self.assertEqual(
+            project.parameters.neighbourhood.public_roads.width_of_secondaries_m,
+            15
         )
         self.assertEqual(project.project_metadata["author"], "test")
 
@@ -97,6 +101,7 @@ class TestProjectModel(unittest.TestCase):
         """Test creating a project without optional description."""
         # Given
         uuid = uuid_pkg.uuid4()
+        Project.create(uuid)
         project = Project(uuid=uuid)
         project.name = "Minimal Project"
         project.save_to_file()
@@ -122,14 +127,21 @@ class TestTaskModel(unittest.TestCase):
 
     def test_create_task_for_project(self):
         """Test creating a task associated with a project."""
-        # Given
+        from app.tasks.generate_rue import generate_rue
         uuid = uuid_pkg.uuid4()
+        Project.create(uuid)
         project = Project(uuid=uuid)
         project.name = "Test Project"
         project.description = "A test project"
         project.save_to_file()
 
-        project.generate()
+        for idx, type in enumerate(ComponentType):
+            generate_rue(project.uuid, idx)
+            self.assertTrue(
+                Path.exists(
+                    project.get_file_path(type, ExtensionType.JSON).resolve()
+                )
+            )
 
 
 class TestProjectParametersSchema(unittest.TestCase):

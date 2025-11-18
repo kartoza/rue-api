@@ -1,6 +1,8 @@
 """Project and Task API routes for urban planning GIS platform."""
 
+import json
 import uuid as uuid_pkg
+from pathlib import Path
 from typing import Any
 from uuid import UUID
 
@@ -8,7 +10,6 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from app.api.deps import SessionDep
-from app.core.config import settings
 from app.models.project import (
     Project,
     ProjectDoesNotExists,
@@ -82,9 +83,7 @@ def create_project(
     """Create a new project with GeoJSON validation."""
     # Create the folder for the project
     uuid = uuid_pkg.uuid4()
-    folder = settings.PROJECT_FILE_DIR / str(uuid)
-    folder.mkdir(parents=True, exist_ok=True)
-
+    Project.create(uuid=uuid)
     project = Project(uuid=uuid)
 
     if project_in.site is not None:
@@ -93,12 +92,10 @@ def create_project(
     if project_in.roads is not None:
         validate_geojson_feature_collection(project_in.roads, "LineString")
 
-    parameters_dict = project_in.parameters.model_dump() if project_in.parameters else {}
-
     project.name = project_in.name
     project.description = project_in.description or ""
     project.project_metadata = project_in.project_metadata or {}
-    project.parameters = parameters_dict
+    project.parameters = project_in.parameters
     project.save_to_file()
 
     # Run task
@@ -174,6 +171,20 @@ def get_step_data(
         project = Project(uuid=uuid)
     except ProjectDoesNotExists as e:
         raise HTTPException(status_code=404, detail=str(e))
+    data_file = project.get_file_path(step, ExtensionType.JSON)
+
+    task = {
+        "task_id": "",
+        "status": "",
+        "message": ""
+    }
+    if Path.exists(data_file):
+        data = json.loads(data_file.read_text())
+        task = {
+            "task_id": data["task_id"],
+            "status": data["status"],
+            "message": data["message"]
+        }
     url = str(
         request.url_for(
             "get_project_file",
@@ -182,4 +193,4 @@ def get_step_data(
             extension=ExtensionType.GLTF.value,
         )
     )
-    return ComponentResponse(file=url, lucky_sheet={})
+    return ComponentResponse(file=url, task=task, lucky_sheet={})

@@ -38,6 +38,7 @@ class ExtensionType(str, Enum):
 
     GEOJSON = "geojson"
     GLTF = "gltf"
+    JSON = "json"
 
 
 STEPS = [
@@ -68,120 +69,6 @@ class ProjectDoesNotExists(Exception):
         """Initialize the exception."""
         self.message = message
         super().__init__(self.message)
-
-
-# Database Models
-class Project:
-    """Project model."""
-
-    uuid: UUID
-    name: str
-    description: Optional[str] = None
-    parameters: dict[str, Any] = {}
-    project_metadata: dict[str, Any] = {}
-
-    def __init__(self, uuid):
-        """Initialize the project model."""
-        self.uuid = uuid
-        self.folder = settings.PROJECT_FILE_DIR / str(uuid)
-        if Path.exists(self.folder):
-            if Path.exists(self.file_path_name):
-                self.name = self.file_path_name.read_text()
-            if Path.exists(self.file_path_description):
-                self.description = self.file_path_description.read_text()
-            if Path.exists(self.file_path_parameters):
-                self.parameters = json.loads(
-                    self.file_path_parameters.read_text()
-                )
-            if Path.exists(self.file_path_metadata):
-                self.project_metadata = json.loads(
-                    self.file_path_metadata.read_text()
-                )
-        else:
-            raise ProjectDoesNotExists("Project does not exist")
-
-    @property
-    def file_path_name(self) -> Path:
-        """Return name"""
-        return self.folder / "name"
-
-    @property
-    def file_path_description(self) -> Path:
-        """Return description"""
-        return self.folder / "description"
-
-    @property
-    def file_path_parameters(self) -> Path:
-        """Return parameters.json"""
-        return self.folder / "parameters.json"
-
-    @property
-    def file_path_metadata(self) -> Path:
-        """Return metadata.json"""
-        return self.folder / "metadata.json"
-
-    def save_to_file(self):
-        """Save the project to a file."""
-        # Save data to files
-        self.file_path_name.write_text(self.name)
-        self.file_path_description.write_text(self.description or "")
-        self.file_path_parameters.write_text(
-            json.dumps(self.parameters or {}, indent=2))
-        self.file_path_metadata.write_text(
-            json.dumps(self.project_metadata or {}, indent=2))
-
-    def generate(self):
-        """Generate the project."""
-        from app.tasks.generate_rue import generate_rue
-        generate_rue.delay(str(self.uuid), 0)
-
-    def get_step_folder(self, step_idx):
-        """Return the folder for the current step."""
-        return self.folder / f"{step_idx:02}-{STEPS[step_idx]}"
-
-    def get_file_path(self, step: ComponentType, extension):
-        """Get the project file."""
-        index = STEPS.index(step.value)
-        base_dir = self.get_step_folder(index)
-
-        # Find all files with the given extension
-        files = list(base_dir.glob(f"*.{extension.value}"))
-
-        if not files:
-            return None
-
-        return files[0]
-
-    # For site and roads
-    @property
-    def file_path_roads(self) -> Path:
-        """Return road.json"""
-        return self.folder / "input" / "roads.geojson"
-
-    @property
-    def file_path_site(self) -> Path:
-        """Return site.json"""
-        return self.folder / "input" / "site.geojson"
-
-    def save_roads(self, roads):
-        """Save the roads to a file."""
-        self.file_path_roads.write_text(json.dumps(roads))
-
-    def save_site(self, site):
-        """Save the site to a file."""
-        self.file_path_site.write_text(json.dumps(site))
-
-    def get_path_roads(self) -> Path:
-        """Return path roads"""
-        if Path.exists(self.file_path_roads):
-            return self.file_path_roads
-        return Path("/rue-lib/data/roads.geojson")
-
-    def get_path_site(self) -> Path:
-        """Return path site"""
-        if Path.exists(self.file_path_site):
-            return self.file_path_site
-        return Path("/rue-lib/data/site.geojson")
 
 
 # Parameter Schemas
@@ -540,8 +427,143 @@ class ProjectResponse(SQLModel):
     file: str
 
 
+class TaskCreateResponse(SQLModel):
+    """Schema for task creation response."""
+
+    task_id: UUID
+    status: str
+    message: str
+
+
 class ComponentResponse(SQLModel):
     """Schema for component GET response."""
 
     file: str
+    task: TaskCreateResponse
     lucky_sheet: Optional[dict[str, Any]] = None
+
+
+# Database Models
+class Project:
+    """Project model."""
+
+    uuid: UUID
+    name: str
+    description: Optional[str] = None
+    parameters: ProjectParameters = None
+    project_metadata: dict[str, Any] = {}
+
+    @staticmethod
+    def create(uuid):
+        """Create a new project."""
+        folder = settings.PROJECT_FILE_DIR / str(uuid)
+        folder.mkdir(parents=True, exist_ok=True)
+
+    def __init__(self, uuid):
+        """Initialize the project model."""
+        self.uuid = uuid
+        self.folder = settings.PROJECT_FILE_DIR / str(uuid)
+        if Path.exists(self.folder):
+            if Path.exists(self.file_path_name):
+                self.name = self.file_path_name.read_text()
+            if Path.exists(self.file_path_description):
+                self.description = self.file_path_description.read_text()
+            if Path.exists(self.file_path_parameters):
+                params_json = json.loads(
+                    self.file_path_parameters.read_text()
+                )
+                self.parameters = ProjectParameters(**params_json)
+            if Path.exists(self.file_path_metadata):
+                self.project_metadata = json.loads(
+                    self.file_path_metadata.read_text()
+                )
+        else:
+            raise ProjectDoesNotExists("Project does not exist")
+
+    def insert_parameters(self, parameters: dict[str, Any]):
+        """Return name"""
+        self.parameters = ProjectParameters(**parameters)
+
+    @property
+    def file_path_name(self) -> Path:
+        """Return name"""
+        return self.folder / "name"
+
+    @property
+    def file_path_description(self) -> Path:
+        """Return description"""
+        return self.folder / "description"
+
+    @property
+    def file_path_parameters(self) -> Path:
+        """Return parameters.json"""
+        return self.folder / "parameters.json"
+
+    @property
+    def file_path_metadata(self) -> Path:
+        """Return metadata.json"""
+        return self.folder / "metadata.json"
+
+    def save_to_file(self):
+        """Save the project to a file."""
+        # Save data to files
+        self.file_path_name.write_text(self.name)
+        self.file_path_description.write_text(self.description or "")
+        if self.parameters:
+            self.file_path_parameters.write_text(
+                json.dumps(self.parameters.model_dump(), indent=2))
+        self.file_path_metadata.write_text(
+            json.dumps(self.project_metadata or {}, indent=2))
+
+    def generate(self):
+        """Generate the project."""
+        from app.tasks.generate_rue import generate_rue
+        generate_rue.delay(str(self.uuid), 0)
+
+    def get_step_folder(self, step_idx):
+        """Return the folder for the current step."""
+        return self.folder / f"{step_idx:02}-{STEPS[step_idx]}"
+
+    def get_file_path(self, step: ComponentType, extension: ExtensionType):
+        """Get the project file."""
+        index = STEPS.index(step.value)
+        base_dir = self.get_step_folder(index)
+
+        # Find all files with the given extension
+        files = list(base_dir.glob(f"*.{extension.value}"))
+
+        if not files:
+            return None
+
+        return files[0]
+
+    # For site and roads
+    @property
+    def file_path_roads(self) -> Path:
+        """Return road.json"""
+        return self.folder / "input" / "roads.geojson"
+
+    @property
+    def file_path_site(self) -> Path:
+        """Return site.json"""
+        return self.folder / "input" / "site.geojson"
+
+    def save_roads(self, roads):
+        """Save the roads to a file."""
+        self.file_path_roads.write_text(json.dumps(roads))
+
+    def save_site(self, site):
+        """Save the site to a file."""
+        self.file_path_site.write_text(json.dumps(site))
+
+    def get_path_roads(self) -> Path:
+        """Return path roads"""
+        if Path.exists(self.file_path_roads):
+            return self.file_path_roads
+        return Path("/rue-lib/data/roads.geojson")
+
+    def get_path_site(self) -> Path:
+        """Return path site"""
+        if Path.exists(self.file_path_site):
+            return self.file_path_site
+        return Path("/rue-lib/data/site.geojson")

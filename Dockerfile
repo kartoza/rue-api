@@ -1,11 +1,12 @@
 FROM python:3.11-slim AS prod
 
 RUN pip install --no-cache-dir uv
+RUN pip install --upgrade pip
 
 # Install dependencies for compiling Python packages and GDAL
 RUN apt-get update
 RUN apt-get install -y git
-RUN apt-get install -y gdal-bin libgdal-dev python3-gdal
+RUN apt-get install -y g++ gdal-bin libgdal-dev python3-gdal
 RUN export GDAL_VERSION=$(gdal-config --version)
 
 # Install rue-lib without pip-installing GDAL
@@ -39,6 +40,9 @@ RUN apt-get update && apt-get install -y \
 
 # This directory already exists in some Debian slim images, so use -p
 RUN mkdir -p /var/run/sshd
+
+# Install depedencies
+RUN uv pip install --system --no-cache ".[dev]"
 
 # Root password
 RUN echo "root:docker" | chpasswd
