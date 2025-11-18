@@ -109,7 +109,7 @@ class Project:
     def generate(self):
         """Generate the project."""
         from app.tasks.generate_rue import generate_rue
-        generate_rue(self.folder, 0)
+        generate_rue.delay(str(self.folder), 0)
 
     def get_step_folder(self, step_idx):
         """Return the folder for the current step."""

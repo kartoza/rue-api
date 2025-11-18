@@ -9,6 +9,7 @@ from fastapi.responses import FileResponse
 
 from app.api.deps import SessionDep
 from app.models.project import (
+    Project,
     ComponentResponse,
     ComponentType,
     ExtensionType,

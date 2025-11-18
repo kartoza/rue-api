@@ -30,3 +30,6 @@ alembic upgrade head
 
 # 5) Start the API
 uvicorn app.main:app --reload
+```
+
+## Using docker

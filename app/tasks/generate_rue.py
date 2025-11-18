@@ -1,8 +1,8 @@
 import json
 import shutil
-import uuid as uuid_pkg
 from pathlib import Path
 
+from app.celery_app import celery
 from app.models.project import STEPS, TaskStatus
 
 
@@ -11,10 +11,14 @@ def process_folder_name(step_idx: int) -> str:
     return f"{step_idx:02}-{STEPS[step_idx]}"
 
 
+@celery.task(bind=True)
 def generate_rue(
-        folder: str, step_idx: int, max_steps_idx: int = None
+        self, folder: str, step_idx: int, max_steps_idx: int = None
 ) -> None:
     """Generate RUE data for a project."""
+    folder = Path(folder)
+    task_id = self.request.id
+
     # If not in step, finish the tasks
     if step_idx < 0 or step_idx >= len(STEPS):
         return
@@ -37,7 +41,6 @@ def generate_rue(
     # TODO:
     #  Run task
     #  Mock, copy file for now
-    task_id = str(uuid_pkg.uuid4())
     _file.write_text(
         json.dumps(
             {
@@ -70,6 +73,6 @@ def generate_rue(
             })
     )
 
-    generate_rue(
-        folder, step_idx=step_idx + 1, max_steps_idx=max_steps_idx
+    generate_rue.delay(
+        str(folder), step_idx=step_idx + 1, max_steps_idx=max_steps_idx
     )

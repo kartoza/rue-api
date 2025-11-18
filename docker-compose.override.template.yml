@@ -1,0 +1,30 @@
+version: "3.8"
+
+volumes:
+  volumes:
+
+services:
+  worker:
+    volumes:
+      - ./volumes:/app/volumes
+      - ./app:/app/app
+  flower:
+    volumes:
+      - ./volumes:/app/volumes
+      - ./app:/app/app
+  api-dev:
+    image: rue-api-dev:latest
+    build:
+      context: .
+      target: dev
+    container_name: rue-api-dev
+    ports:
+      - "8000:8000"
+      - "8001:22"
+    env_file:
+      - .env
+    volumes:
+      - ./volumes:/app/volumes
+      - ./app:/app/app
+    depends_on:
+      - worker

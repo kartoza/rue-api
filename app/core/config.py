@@ -51,7 +51,7 @@ class Settings(BaseSettings):
     SENTRY_DSN: HttpUrl | None = None
 
     DB_SCHEME: str = "sqlite"  # "sqlite" or "postgresql+psycopg"
-    SQLITE_DB_PATH: str = "rue.db"  # used when DB_SCHEME=sqlite
+    SQLITE_DB_PATH: str = "volumes/rue.db"  # used when DB_SCHEME=sqlite
 
     # Postgres fields (used when DB_SCHEME startswith("postgres"))
     POSTGRES_SERVER: str | None = None
@@ -124,7 +124,7 @@ class Settings(BaseSettings):
         self._check_default_secret("FIRST_SUPERUSER_PASSWORD", self.FIRST_SUPERUSER_PASSWORD)
         return self
 
-    PROJECT_FILE_DIR: Path = Path("files/project")
+    PROJECT_FILE_DIR: Path = Path("volumes/files/project")
 
 
 settings = Settings()  # type: ignore

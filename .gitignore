@@ -59,3 +59,6 @@ app/alembic/*.sqlite
 
 # Media
 files
+
+docker-compose.override.yml
+volumes
