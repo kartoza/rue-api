@@ -52,6 +52,24 @@ STEPS = [
 ]
 
 
+class ProjectDoesNotExists(Exception):
+    """Project does not exist."""
+
+    response_schema = {
+        "description": "Project not found",
+        "content": {
+            "application/json": {
+                "example": {"detail": "Project does not exist"}
+            }
+        },
+    }
+
+    def __init__(self, message):
+        """Initialize the exception."""
+        self.message = message
+        super().__init__(self.message)
+
+
 # Database Models
 class Project:
     """Project model."""
@@ -67,14 +85,20 @@ class Project:
         self.uuid = uuid
         self.folder = settings.PROJECT_FILE_DIR / str(uuid)
         if Path.exists(self.folder):
-            self.name = self.file_path_name.read_text()
-            self.description = self.file_path_description.read_text()
-            self.parameters = json.loads(self.file_path_parameters.read_text())
-            self.project_metadata = json.loads(
-                self.file_path_metadata.read_text()
-            )
+            if Path.exists(self.file_path_name):
+                self.name = self.file_path_name.read_text()
+            if Path.exists(self.file_path_description):
+                self.description = self.file_path_description.read_text()
+            if Path.exists(self.file_path_parameters):
+                self.parameters = json.loads(
+                    self.file_path_parameters.read_text()
+                )
+            if Path.exists(self.file_path_metadata):
+                self.project_metadata = json.loads(
+                    self.file_path_metadata.read_text()
+                )
         else:
-            self.folder.mkdir(parents=True, exist_ok=True)
+            raise ProjectDoesNotExists("Project does not exist")
 
     @property
     def file_path_name(self) -> Path:
@@ -109,7 +133,7 @@ class Project:
     def generate(self):
         """Generate the project."""
         from app.tasks.generate_rue import generate_rue
-        generate_rue.delay(str(self.folder), 0)
+        generate_rue.delay(str(self.uuid), 0)
 
     def get_step_folder(self, step_idx):
         """Return the folder for the current step."""
@@ -119,8 +143,45 @@ class Project:
         """Get the project file."""
         index = STEPS.index(step.value)
         base_dir = self.get_step_folder(index)
-        filename = f"{step.value}.{extension.value}"
-        return base_dir / filename
+
+        # Find all files with the given extension
+        files = list(base_dir.glob(f"*.{extension.value}"))
+
+        if not files:
+            return None
+
+        return files[0]
+
+    # For site and roads
+    @property
+    def file_path_roads(self) -> Path:
+        """Return road.json"""
+        return self.folder / "input" / "roads.geojson"
+
+    @property
+    def file_path_site(self) -> Path:
+        """Return site.json"""
+        return self.folder / "input" / "site.geojson"
+
+    def save_roads(self, roads):
+        """Save the roads to a file."""
+        self.file_path_roads.write_text(json.dumps(roads))
+
+    def save_site(self, site):
+        """Save the site to a file."""
+        self.file_path_site.write_text(json.dumps(site))
+
+    def get_path_roads(self) -> Path:
+        """Return path roads"""
+        if Path.exists(self.file_path_roads):
+            return self.file_path_roads
+        return Path("/rue-lib/data/roads.geojson")
+
+    def get_path_site(self) -> Path:
+        """Return path site"""
+        if Path.exists(self.file_path_site):
+            return self.file_path_site
+        return Path("/rue-lib/data/site.geojson")
 
 
 # Parameter Schemas

@@ -2,6 +2,17 @@ FROM python:3.11-slim AS prod
 
 RUN pip install --no-cache-dir uv
 
+# Install dependencies for compiling Python packages and GDAL
+RUN apt-get update
+RUN apt-get install -y git
+RUN apt-get install -y gdal-bin libgdal-dev python3-gdal
+RUN export GDAL_VERSION=$(gdal-config --version)
+
+# Install rue-lib without pip-installing GDAL
+RUN git clone https://github.com/kartoza/rue-lib.git && \
+    cd rue-lib && \
+    pip install -e .
+
 WORKDIR /app
 
 # Copy the entire project FIRST, because the package root (app/) must exist

@@ -8,8 +8,10 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from app.api.deps import SessionDep
+from app.core.config import settings
 from app.models.project import (
     Project,
+    ProjectDoesNotExists,
     ComponentResponse,
     ComponentType,
     ExtensionType,
@@ -78,7 +80,12 @@ def create_project(
         *, session: SessionDep, project_in: ProjectCreate, request: Request
 ) -> ProjectResponse:
     """Create a new project with GeoJSON validation."""
-    project = Project(uuid=uuid_pkg.uuid4())
+    # Create the folder for the project
+    uuid = uuid_pkg.uuid4()
+    folder = settings.PROJECT_FILE_DIR / str(uuid)
+    folder.mkdir(parents=True, exist_ok=True)
+
+    project = Project(uuid=uuid)
 
     if project_in.site is not None:
         validate_geojson_feature_collection(project_in.site, "Polygon")
@@ -114,6 +121,9 @@ def create_project(
 @router.get(
     "/projects/{uuid}/{step}.{extension}",
     status_code=202,
+    responses={
+        404: ProjectDoesNotExists.response_schema,
+    },
 )
 def get_project_file(
         *,
@@ -123,7 +133,10 @@ def get_project_file(
         extension: ExtensionType,
 ) -> FileResponse:
     """Trigger a single step of a project generation task."""
-    project = Project(uuid=uuid)
+    try:
+        project = Project(uuid=uuid)
+    except ProjectDoesNotExists as e:
+        raise HTTPException(status_code=404, detail=str(e))
     filename = f"{step.value}.{extension.value}"
     file_path = project.get_file_path(step, extension)
     if not file_path.exists():
@@ -145,6 +158,9 @@ def get_project_file(
     "/projects/{uuid}/{step}",
     response_model=ComponentResponse,
     status_code=202,
+    responses={
+        404: ProjectDoesNotExists.response_schema,
+    },
 )
 def get_step_data(
         *,
@@ -154,10 +170,14 @@ def get_step_data(
         request: Request
 ) -> ComponentResponse:
     """Get sttp data."""
+    try:
+        project = Project(uuid=uuid)
+    except ProjectDoesNotExists as e:
+        raise HTTPException(status_code=404, detail=str(e))
     url = str(
         request.url_for(
             "get_project_file",
-            uuid=uuid,
+            uuid=project.uuid,
             step=step,
             extension=ExtensionType.GLTF.value,
         )
