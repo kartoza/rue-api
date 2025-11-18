@@ -13,9 +13,7 @@ from app.models.project import (
     ComponentType,
     ExtensionType,
     ProjectCreate,
-    ProjectResponse,
-    TaskCreateResponse,
-    Project
+    ProjectResponse
 )
 
 router = APIRouter(tags=["Projects"])
@@ -114,7 +112,6 @@ def create_project(
 
 @router.get(
     "/projects/{uuid}/{step}.{extension}",
-    response_model=TaskCreateResponse,
     status_code=202,
 )
 def get_project_file(
@@ -155,7 +152,7 @@ def get_step_data(
         step: ComponentType,
         request: Request
 ) -> ComponentResponse:
-    """Trigger a single step of a project generation task."""
+    """Get sttp data."""
     url = str(
         request.url_for(
             "get_project_file",

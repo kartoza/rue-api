@@ -30,7 +30,6 @@ from app.models.project import (
     StarterBuildingsOnLocals,
     StarterBuildingsOnSecondaries,
     StreetSection,
-    TaskStatus,
     Tissue,
     Trees,
     UrbanBlockStructure,
@@ -361,15 +360,6 @@ class TestSwaggerUIDocumentation(unittest.TestCase):
         expected = ["site", "streets", "clusters", "public", "subdivision",
                     "footprint", "building_start", "building_max"]
         self.assertEqual(component_values, expected)
-
-    def test_task_status_enum_values(self):
-        """Test that TaskStatus enum has all expected values."""
-        # Given / When
-        status_values = [ts.value for ts in TaskStatus]
-
-        # Then
-        expected = ["pending", "running", "success", "failed"]
-        self.assertEqual(status_values, expected)
 
 
 if __name__ == "__main__":

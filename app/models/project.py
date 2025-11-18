@@ -1,7 +1,6 @@
 """Project and Task models for urban planning GIS platform."""
 
 import json
-from datetime import datetime
 from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
@@ -480,31 +479,8 @@ class ProjectResponse(SQLModel):
     file: str
 
 
-class TaskCreateResponse(SQLModel):
-    """Schema for task creation response."""
-
-    task_id: UUID
-    status: str
-    message: str
-
-
 class ComponentResponse(SQLModel):
     """Schema for component GET response."""
 
     file: str
     lucky_sheet: Optional[dict[str, Any]] = None
-
-
-class TaskPublic(SQLModel):
-    """Schema for public task data."""
-
-    id: UUID
-    project_id: UUID
-    component_type: str
-    status: str
-    file: Optional[str] = None
-    lucky_sheet: Optional[dict[str, Any]] = None
-    error_message: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-    completed_at: Optional[datetime] = None

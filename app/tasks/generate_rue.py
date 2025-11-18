@@ -3,7 +3,7 @@ import shutil
 import uuid as uuid_pkg
 from pathlib import Path
 
-from app.models.project import STEPS
+from app.models.project import STEPS, TaskStatus
 
 
 def process_folder_name(step_idx: int) -> str:
@@ -42,7 +42,7 @@ def generate_rue(
         json.dumps(
             {
                 "task_id": task_id,
-                "status": "RUNNING",
+                "status": TaskStatus.PENDING,
                 "message": ""
             })
     )
@@ -55,8 +55,9 @@ def generate_rue(
     _file.write_text(
         json.dumps(
             {
-                "process": f"STEP {process_folder_name(step_idx)}",
-                "task_id": str(uuid_pkg.uuid4()),
+                "task_id": task_id,
+                "status": TaskStatus.SUCCESS,
+                "message": f"STEP {process_folder_name(step_idx)}",
             },
             indent=2)
     )
@@ -64,7 +65,7 @@ def generate_rue(
         json.dumps(
             {
                 "task_id": task_id,
-                "status": "FINISHED",
+                "status": TaskStatus.SUCCESS,
                 "message": ""
             })
     )
