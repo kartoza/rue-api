@@ -3,9 +3,9 @@ from fastapi.testclient import TestClient
 from sqlalchemy.pool import StaticPool
 from sqlmodel import SQLModel, create_engine, Session, select
 
-from app.main import app as fastapi_app          # ✅ the FastAPI() instance
-from app.api.deps import get_db                  # adjust path if different
-import app.models  # noqa: F401                  # ensure models are registered
+from app.main import app as fastapi_app
+from app.api.deps import get_db
+import app.models  # noqa: F401
 
 from app.crud import create_user
 from app.models import User, UserCreate
@@ -35,9 +35,7 @@ def db() -> Session:
 def client(db: Session) -> TestClient:
     def override_get_db():
         yield db
-    # ✅ override on the FastAPI instance
     fastapi_app.dependency_overrides[get_db] = override_get_db
-    # ✅ use the FastAPI instance here
     with TestClient(fastapi_app) as c:
         yield c
     fastapi_app.dependency_overrides.clear()
