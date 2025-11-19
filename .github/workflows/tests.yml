@@ -24,6 +24,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Install GDAL system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y gdal-bin libgdal-dev
+          gdalinfo --version
+          # export GDAL version for pip
+          echo "GDAL_VERSION=$(gdalinfo --version | awk '{print $2}')" >> $GITHUB_ENV
+
       - name: Set up Python
         uses: actions/setup-python@v5
         with:
@@ -34,6 +43,7 @@ jobs:
         run: |
           python -V
           uv --version
+          echo "GDAL_VERSION=$GDAL_VERSION"
       - name: Extend lock for this Python (if needed)
         run: uv lock --python ${{ matrix.python-version }}
       - name: Sync (frozen) from lock
