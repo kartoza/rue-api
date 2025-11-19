@@ -7,8 +7,6 @@ from uuid import UUID
 
 from sqlmodel import Session, SQLModel, create_engine
 
-from app.core import config
-from app.core.config_test import TestSettings
 from app.models.project import (
     Amenities,
     BlockStructureConfig,
