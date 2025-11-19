@@ -2,12 +2,10 @@
 
 import json
 from enum import Enum
-from importlib.resources import files
 from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
 
-import rue_lib
 from sqlmodel import Field, SQLModel
 
 from app.core.config import settings
