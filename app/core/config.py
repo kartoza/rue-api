@@ -23,6 +23,13 @@ def parse_cors(v: Any) -> list[str] | str:
 
 
 class Settings(BaseSettings):
+    VOLUME_PATH: str = "volumes"
+
+    @computed_field
+    @property
+    def SQLITE_DB_PATH(self) -> str:
+        return str(Path(self.VOLUME_PATH) / "rue.db")
+
     # Load env from project root: rue-api/.env
     model_config = SettingsConfigDict(
         env_file=".env",
@@ -51,7 +58,6 @@ class Settings(BaseSettings):
     SENTRY_DSN: HttpUrl | None = None
 
     DB_SCHEME: str = "sqlite"  # "sqlite" or "postgresql+psycopg"
-    SQLITE_DB_PATH: str = "volumes/rue.db"  # used when DB_SCHEME=sqlite
 
     # Postgres fields (used when DB_SCHEME startswith("postgres"))
     POSTGRES_SERVER: str | None = None
@@ -59,6 +65,11 @@ class Settings(BaseSettings):
     POSTGRES_USER: str | None = None
     POSTGRES_PASSWORD: str = ""
     POSTGRES_DB: str = ""
+
+    # If using celery
+    ASYNC_SIGNALS: bool = False
+    REDIS_HOST: str | None = None
+    REDIS_PASSWORD: str | None = None
 
     @computed_field  # type: ignore[prop-decorator]
     @property
@@ -124,7 +135,10 @@ class Settings(BaseSettings):
         self._check_default_secret("FIRST_SUPERUSER_PASSWORD", self.FIRST_SUPERUSER_PASSWORD)
         return self
 
-    PROJECT_FILE_DIR: Path = Path("volumes/files/project")
+    @computed_field
+    @property
+    def PROJECT_FILE_DIR(self) -> str:
+        return Path(self.VOLUME_PATH) / "files" / "project"
 
 
 settings = Settings()  # type: ignore

@@ -1,27 +1,12 @@
 <component name="ProjectRunConfigurationManager">
   <configuration default="false" name="rue-api" type="Python.FastAPI">
-    <option name="additionalOptions" value="--reload --host 0.0.0.0 --port 8000" />
     <option name="file" value="$PROJECT_DIR$/app/main.py" />
     <module name="rue-api" />
     <option name="ENV_FILES" value="" />
     <option name="INTERPRETER_OPTIONS" value="" />
     <option name="PARENT_ENVS" value="true" />
-    <envs>
-      <env name="EMAILS_FROM_EMAIL" value="info@example.com" />
-      <env name="FIRST_SUPERUSER" value="admin@example.com" />
-      <env name="FIRST_SUPERUSER_PASSWORD" value="changethis" />
-      <env name="RUE_DB_NAME" value="rue.db" />
-      <env name="RUE_DB_SCHEME" value="sqlite" />
-      <env name="SECRET_KEY" value="changethis" />
-      <env name="SMTP_HOST" value="" />
-      <env name="SMTP_PASSWORD" value="" />
-      <env name="SMTP_PORT" value="587" />
-      <env name="SMTP_SSL" value="False" />
-      <env name="SMTP_TLS" value="True" />
-      <env name="SMTP_USER" value="" />
-    </envs>
-    <option name="SDK_HOME" value="/usr/local/bin/python3" />
-    <option name="SDK_NAME" value="Remote Python 3.11.14 (sftp://root@localhost:8001/usr/local/bin/python3)" />
+    <option name="SDK_HOME" value="$PROJECT_DIR$/.venv/bin/python" />
+    <option name="SDK_NAME" value="Python 3.11 (rue-api)" />
     <option name="WORKING_DIRECTORY" value="" />
     <option name="IS_MODULE_SDK" value="false" />
     <option name="ADD_CONTENT_ROOTS" value="true" />

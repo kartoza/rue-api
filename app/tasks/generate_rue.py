@@ -6,8 +6,10 @@ from rue_lib.site.runner import SiteConfig, generate_parcels
 from rue_lib.streets.runner import StreetConfig, generate_streets
 
 from app.celery_app import celery
-from app.models.project import STEPS, TaskStatus, Project, ComponentType, \
-    ExtensionType
+from app.models.project import (
+    STEPS, TaskStatus, Project, ComponentType, ExtensionType
+)
+from app.core.config import settings
 
 
 def process_folder_name(step_idx: int) -> str:
@@ -110,9 +112,14 @@ def generate_rue(
                 indent=2
             )
         )
-        generate_rue.delay(
-            uuid, step_idx=step_idx + 1, max_steps_idx=max_steps_idx
-        )
+        if settings.ASYNC_SIGNALS:
+            generate_rue.delay(
+                uuid, step_idx=step_idx + 1, max_steps_idx=max_steps_idx
+            )
+        else:
+            generate_rue(
+                uuid, step_idx=step_idx + 1, max_steps_idx=max_steps_idx
+            )
     except Exception as e:
         # Script finished successfully
         task_file.write_text(

@@ -1,9 +1,10 @@
 from celery import Celery
+from app.core.config import settings
 
 celery = Celery(
     "worker",
-    broker="redis://redis:6379/0",
-    backend="redis://redis:6379/1",
+    broker=f"{settings.REDIS_HOST}://{settings.REDIS_PASSWORD}:6379/0",
+    backend=f"{settings.REDIS_HOST}://{settings.REDIS_PASSWORD}:6379/1",
     include=[
         "app.tasks.generate_rue",
     ],

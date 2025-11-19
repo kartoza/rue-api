@@ -2,10 +2,12 @@
 
 import json
 from enum import Enum
+from importlib.resources import files
 from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
 
+import rue_lib
 from sqlmodel import Field, SQLModel
 
 from app.core.config import settings
@@ -518,7 +520,10 @@ class Project:
     def generate(self):
         """Generate the project."""
         from app.tasks.generate_rue import generate_rue
-        generate_rue.delay(str(self.uuid), 0)
+        if settings.ASYNC_SIGNALS:
+            generate_rue.delay(str(self.uuid), 0)
+        else:
+            generate_rue(str(self.uuid), 0)
 
     def get_step_folder(self, step_idx):
         """Return the folder for the current step."""
@@ -560,10 +565,12 @@ class Project:
         """Return path roads"""
         if Path.exists(self.file_path_roads):
             return self.file_path_roads
-        return Path("/rue-lib/data/roads.geojson")
+        base_dir = Path(__file__).parent.parent
+        return base_dir / "data" / "roads.geojson"
 
     def get_path_site(self) -> Path:
         """Return path site"""
         if Path.exists(self.file_path_site):
             return self.file_path_site
-        return Path("/rue-lib/data/site.geojson")
+        base_dir = Path(__file__).parent.parent
+        return base_dir / "data" / "site.geojson"

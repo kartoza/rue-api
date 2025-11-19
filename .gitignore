@@ -58,7 +58,4 @@ app/alembic/*.sqlite
 .ipynb_checkpoints/
 
 # Media
-files
-
-docker-compose.override.yml
 volumes

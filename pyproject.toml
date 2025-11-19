@@ -31,7 +31,8 @@ dependencies = [
     "celery[redis]>=5.5.3",
     "redis>=5.0.0,<5.2.2",
     "flower>=2.0.1",
-    "gdal==3.10.3"
+    "gdal==3.10.3",
+    "rue-lib @ git+https://github.com/kartoza/rue-lib.git"
 ]
 
 [project.optional-dependencies]
@@ -87,3 +88,6 @@ show_contexts = true
 
 [tool.setuptools]
 packages = ["app"]
+
+[tool.setuptools.package-data]
+"rue_lib" = ["data/*"]
