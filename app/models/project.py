@@ -422,8 +422,8 @@ class ProjectCreate(SQLModel):
 class ProjectResponse(SQLModel):
     """Schema for project creation response."""
 
-    project_uuid: UUID
-    project_name: str
+    uuid: UUID
+    name: str
     file: str
 
 

@@ -109,8 +109,8 @@ def create_project(
         )
     )
     return ProjectResponse(
-        project_uuid=project.uuid,
-        project_name=project_in.name,
+        uuid=project.uuid,
+        name=project_in.name,
         file=url,
     )
 
@@ -181,7 +181,7 @@ def get_step_data(
     if Path.exists(data_file):
         data = json.loads(data_file.read_text())
         task = {
-            "task_id": data["task_id"],
+            "task_id": data["task_id"] or uuid_pkg.uuid4(),
             "status": data["status"],
             "message": data["message"]
         }
