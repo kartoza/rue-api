@@ -1,12 +1,14 @@
 """Project and Task models for urban planning GIS platform."""
 
-import uuid as uuid_pkg
-from datetime import datetime, timezone
+import json
 from enum import Enum
+from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
 
-from sqlmodel import Column, Field, JSON, Relationship, SQLModel
+from sqlmodel import Field, SQLModel
+
+from app.core.config import settings
 
 
 class TaskStatus(str, Enum):
@@ -21,6 +23,7 @@ class TaskStatus(str, Enum):
 class ComponentType(str, Enum):
     """Component type enumeration."""
 
+    SITE = "site"
     STREETS = "streets"
     CLUSTERS = "clusters"
     PUBLIC = "public"
@@ -30,41 +33,42 @@ class ComponentType(str, Enum):
     BUILDING_MAX = "building_max"
 
 
-# Database Models
-class Project(SQLModel, table=True):
-    """Project database model."""
+class ExtensionType(str, Enum):
+    """Extension type enumeration."""
 
-    __tablename__ = "projects"
-
-    uuid: UUID = Field(default_factory=uuid_pkg.uuid4, primary_key=True)
-    name: str = Field(description="Project name")
-    description: Optional[str] = Field(default=None, description="Project description")
-    project_metadata: dict[str, Any] = Field(
-        default_factory=dict, sa_column=Column("metadata", JSON)
-    )
-    parameters: dict[str, Any] = Field(sa_column=Column(JSON))
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-
-    # Relationships
-    tasks: list["Task"] = Relationship(back_populates="project")
+    GEOJSON = "geojson"
+    GLTF = "gltf"
+    JSON = "json"
 
 
-class Task(SQLModel, table=True):
-    """Task database model."""
+STEPS = [
+    ComponentType.SITE.value,
+    ComponentType.STREETS.value,
+    ComponentType.CLUSTERS.value,
+    ComponentType.PUBLIC.value,
+    ComponentType.SUBDIVISION.value,
+    ComponentType.FOOTPRINT.value,
+    ComponentType.BUILDING_START.value,
+    ComponentType.BUILDING_MAX.value
+]
 
-    __tablename__ = "tasks"
 
-    uuid: UUID = Field(default_factory=uuid_pkg.uuid4, primary_key=True)
-    name: str = Field(description="Task name")
-    project_uuid: UUID = Field(foreign_key="projects.uuid")
-    status: TaskStatus = Field(default=TaskStatus.PENDING)
-    component_type: ComponentType = Field(description="Type of component being generated")
-    created_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(timezone.utc))
+class ProjectDoesNotExists(Exception):
+    """Project does not exist."""
 
-    # Relationships
-    project: Project = Relationship(back_populates="tasks")
+    response_schema = {
+        "description": "Project not found",
+        "content": {
+            "application/json": {
+                "example": {"detail": "Project does not exist"}
+            }
+        },
+    }
+
+    def __init__(self, message):
+        """Initialize the exception."""
+        self.message = message
+        super().__init__(self.message)
 
 
 # Parameter Schemas
@@ -418,21 +422,9 @@ class ProjectCreate(SQLModel):
 class ProjectResponse(SQLModel):
     """Schema for project creation response."""
 
-    project_uuid: UUID
-    project_name: str
-    file: str
-
-
-class ProjectPublic(SQLModel):
-    """Schema for public project data."""
-
     uuid: UUID
     name: str
-    description: Optional[str] = None
-    project_metadata: dict[str, Any] = Field(alias="metadata")
-    parameters: dict[str, Any]
-    created_at: datetime
-    updated_at: datetime
+    file: str
 
 
 class TaskCreateResponse(SQLModel):
@@ -447,19 +439,136 @@ class ComponentResponse(SQLModel):
     """Schema for component GET response."""
 
     file: str
+    task: TaskCreateResponse
     lucky_sheet: Optional[dict[str, Any]] = None
 
 
-class TaskPublic(SQLModel):
-    """Schema for public task data."""
+# Database Models
+class Project:
+    """Project model."""
 
-    id: UUID
-    project_id: UUID
-    component_type: str
-    status: str
-    file: Optional[str] = None
-    lucky_sheet: Optional[dict[str, Any]] = None
-    error_message: Optional[str] = None
-    created_at: datetime
-    updated_at: datetime
-    completed_at: Optional[datetime] = None
+    uuid: UUID
+    name: str
+    description: Optional[str] = None
+    parameters: ProjectParameters = None
+    project_metadata: dict[str, Any] = {}
+
+    @staticmethod
+    def create(uuid):
+        """Create a new project."""
+        folder = settings.PROJECT_FILE_DIR / str(uuid)
+        folder.mkdir(parents=True, exist_ok=True)
+
+    def __init__(self, uuid):
+        """Initialize the project model."""
+        self.uuid = uuid
+        self.folder = settings.PROJECT_FILE_DIR / str(uuid)
+        if Path.exists(self.folder):
+            if Path.exists(self.file_path_name):
+                self.name = self.file_path_name.read_text()
+            if Path.exists(self.file_path_description):
+                self.description = self.file_path_description.read_text()
+            if Path.exists(self.file_path_parameters):
+                params_json = json.loads(
+                    self.file_path_parameters.read_text()
+                )
+                self.parameters = ProjectParameters(**params_json)
+            if Path.exists(self.file_path_metadata):
+                self.project_metadata = json.loads(
+                    self.file_path_metadata.read_text()
+                )
+        else:
+            raise ProjectDoesNotExists("Project does not exist")
+
+    def insert_parameters(self, parameters: dict[str, Any]):
+        """Return name"""
+        self.parameters = ProjectParameters(**parameters)
+
+    @property
+    def file_path_name(self) -> Path:
+        """Return name"""
+        return self.folder / "name"
+
+    @property
+    def file_path_description(self) -> Path:
+        """Return description"""
+        return self.folder / "description"
+
+    @property
+    def file_path_parameters(self) -> Path:
+        """Return parameters.json"""
+        return self.folder / "parameters.json"
+
+    @property
+    def file_path_metadata(self) -> Path:
+        """Return metadata.json"""
+        return self.folder / "metadata.json"
+
+    def save_to_file(self):
+        """Save the project to a file."""
+        # Save data to files
+        self.file_path_name.write_text(self.name)
+        self.file_path_description.write_text(self.description or "")
+        if self.parameters:
+            self.file_path_parameters.write_text(
+                json.dumps(self.parameters.model_dump(), indent=2))
+        self.file_path_metadata.write_text(
+            json.dumps(self.project_metadata or {}, indent=2))
+
+    def generate(self):
+        """Generate the project."""
+        from app.tasks.generate_rue import generate_rue
+        if settings.ASYNC_SIGNALS:
+            generate_rue.delay(str(self.uuid), 0)
+        else:
+            generate_rue(str(self.uuid), 0)
+
+    def get_step_folder(self, step_idx):
+        """Return the folder for the current step."""
+        return self.folder / f"{step_idx:02}-{STEPS[step_idx]}"
+
+    def get_file_path(self, step: ComponentType, extension: ExtensionType):
+        """Get the project file."""
+        index = STEPS.index(step.value)
+        base_dir = self.get_step_folder(index)
+
+        # Find all files with the given extension
+        files = list(base_dir.glob(f"*.{extension.value}"))
+
+        if not files:
+            return None
+
+        return files[0]
+
+    # For site and roads
+    @property
+    def file_path_roads(self) -> Path:
+        """Return road.json"""
+        return self.folder / "input" / "roads.geojson"
+
+    @property
+    def file_path_site(self) -> Path:
+        """Return site.json"""
+        return self.folder / "input" / "site.geojson"
+
+    def save_roads(self, roads):
+        """Save the roads to a file."""
+        self.file_path_roads.write_text(json.dumps(roads))
+
+    def save_site(self, site):
+        """Save the site to a file."""
+        self.file_path_site.write_text(json.dumps(site))
+
+    def get_path_roads(self) -> Path:
+        """Return path roads"""
+        if Path.exists(self.file_path_roads):
+            return self.file_path_roads
+        base_dir = Path(__file__).parent.parent
+        return base_dir / "data" / "roads.geojson"
+
+    def get_path_site(self) -> Path:
+        """Return path site"""
+        if Path.exists(self.file_path_site):
+            return self.file_path_site
+        base_dir = Path(__file__).parent.parent
+        return base_dir / "data" / "site.geojson"

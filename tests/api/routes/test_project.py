@@ -1,7 +1,8 @@
 """Unit tests for Project and Task models and business logic."""
 
 import unittest
-from datetime import datetime, timezone
+import uuid as uuid_pkg
+from pathlib import Path
 from uuid import UUID
 
 from sqlmodel import Session, SQLModel, create_engine
@@ -30,11 +31,9 @@ from app.models.project import (
     StarterBuildingsOnLocals,
     StarterBuildingsOnSecondaries,
     StreetSection,
-    Task,
-    TaskStatus,
     Tissue,
     Trees,
-    UrbanBlockStructure,
+    UrbanBlockStructure, ExtensionType,
 )
 
 
@@ -54,110 +53,61 @@ class TestProjectModel(unittest.TestCase):
     def test_create_project_minimal(self):
         """Test creating a project with minimal required fields."""
         # Given
-        project = Project(
-            name="Test Project",
-            description="A test project",
-            project_metadata={},
-            parameters={},
-        )
-
-        # When
-        self.session.add(project)
-        self.session.commit()
-        self.session.refresh(project)
+        uuid = uuid_pkg.uuid4()
+        Project.create(uuid)
+        project = Project(uuid=uuid)
+        project.name = "Test Project"
+        project.description = "A test project"
+        project.save_to_file()
 
         # Then
+        project = Project(uuid=uuid)
         self.assertIsNotNone(project.uuid)
         self.assertEqual(project.name, "Test Project")
         self.assertEqual(project.description, "A test project")
         self.assertIsInstance(project.uuid, UUID)
-        self.assertIsInstance(project.created_at, datetime)
-        self.assertIsInstance(project.updated_at, datetime)
 
     def test_create_project_with_parameters(self):
         """Test creating a project with full parameters."""
         # Given
-        parameters = {
-            "neighbourhood": {
-                "public_roads": {
-                    "width_of_arteries_m": 20,
-                    "width_of_secondaries_m": 15,
-                    "width_of_locals_m": 10,
-                }
-            }
-        }
-        project = Project(
-            name="Full Test Project",
-            description="Project with parameters",
-            project_metadata={"author": "test"},
-            parameters=parameters,
+        parameters = (
+            ProjectCreate.model_config["json_schema_extra"]["examples"][0][
+                "parameters"]
         )
+        uuid = uuid_pkg.uuid4()
+        Project.create(uuid)
+        project = Project(uuid=uuid)
+        project.name = "Full Test Project"
+        project.description = "Project with parameters"
+        project.project_metadata = {"author": "test"}
+        project.insert_parameters(parameters)
+        project.save_to_file()
 
-        # When
-        self.session.add(project)
-        self.session.commit()
-        self.session.refresh(project)
-
+        project = Project(uuid=uuid)
         # Then
-        self.assertEqual(project.parameters["neighbourhood"]["public_roads"]["width_of_arteries_m"], 20)
+        self.assertEqual(
+            project.parameters.neighbourhood.public_roads.width_of_arteries_m,
+            20
+        )
+        self.assertEqual(
+            project.parameters.neighbourhood.public_roads.width_of_secondaries_m,
+            15
+        )
         self.assertEqual(project.project_metadata["author"], "test")
 
     def test_create_project_without_description(self):
         """Test creating a project without optional description."""
         # Given
-        project = Project(
-            name="Minimal Project",
-            project_metadata={},
-            parameters={},
-        )
-
-        # When
-        self.session.add(project)
-        self.session.commit()
-        self.session.refresh(project)
+        uuid = uuid_pkg.uuid4()
+        Project.create(uuid)
+        project = Project(uuid=uuid)
+        project.name = "Minimal Project"
+        project.save_to_file()
 
         # Then
-        self.assertIsNone(project.description)
+        project = Project(uuid=uuid)
+        self.assertEqual(project.description, "")
         self.assertEqual(project.name, "Minimal Project")
-
-    def test_project_uuid_uniqueness(self):
-        """Test that each project gets a unique UUID."""
-        # Given
-        project1 = Project(name="Project 1", project_metadata={}, parameters={})
-        project2 = Project(name="Project 2", project_metadata={}, parameters={})
-
-        # When
-        self.session.add(project1)
-        self.session.add(project2)
-        self.session.commit()
-
-        # Then
-        self.assertNotEqual(project1.uuid, project2.uuid)
-
-    def test_project_timestamps(self):
-        """Test that created_at and updated_at are set automatically."""
-        # Given
-        project = Project(name="Time Test", project_metadata={}, parameters={})
-
-        # When
-        self.session.add(project)
-        self.session.commit()
-        self.session.refresh(project)
-
-        # Then
-        self.assertIsNotNone(project.created_at)
-        self.assertIsNotNone(project.updated_at)
-        self.assertIsInstance(project.created_at, datetime)
-        self.assertIsInstance(project.updated_at, datetime)
-        # Verify timestamps are recent (within last minute)
-        now = datetime.now(timezone.utc)
-        # Make created_at timezone-aware for comparison if it's naive
-        created_at = project.created_at if project.created_at.tzinfo else project.created_at.replace(tzinfo=timezone.utc)
-        updated_at = project.updated_at if project.updated_at.tzinfo else project.updated_at.replace(tzinfo=timezone.utc)
-        time_diff_created = (now - created_at).total_seconds()
-        time_diff_updated = (now - updated_at).total_seconds()
-        self.assertLess(time_diff_created, 60, "created_at should be within last minute")
-        self.assertLess(time_diff_updated, 60, "updated_at should be within last minute")
 
 
 class TestTaskModel(unittest.TestCase):
@@ -175,145 +125,21 @@ class TestTaskModel(unittest.TestCase):
 
     def test_create_task_for_project(self):
         """Test creating a task associated with a project."""
-        # Given
-        project = Project(name="Test Project", project_metadata={}, parameters={})
-        self.session.add(project)
-        self.session.commit()
-        self.session.refresh(project)
+        from app.tasks.generate_rue import generate_rue
+        uuid = uuid_pkg.uuid4()
+        Project.create(uuid)
+        project = Project(uuid=uuid)
+        project.name = "Test Project"
+        project.description = "A test project"
+        project.save_to_file()
 
-        task = Task(
-            name="Streets Generation",
-            project_uuid=project.uuid,
-            status=TaskStatus.PENDING,
-            component_type=ComponentType.STREETS,
-        )
-
-        # When
-        self.session.add(task)
-        self.session.commit()
-        self.session.refresh(task)
-
-        # Then
-        self.assertIsNotNone(task.uuid)
-        self.assertEqual(task.name, "Streets Generation")
-        self.assertEqual(task.project_uuid, project.uuid)
-        self.assertEqual(task.status, TaskStatus.PENDING)
-        self.assertEqual(task.component_type, ComponentType.STREETS)
-
-    def test_task_default_status(self):
-        """Test that task status defaults to PENDING."""
-        # Given
-        project = Project(name="Test Project", project_metadata={}, parameters={})
-        self.session.add(project)
-        self.session.commit()
-
-        task = Task(
-            name="Test Task",
-            project_uuid=project.uuid,
-            component_type=ComponentType.CLUSTERS,
-        )
-
-        # When
-        self.session.add(task)
-        self.session.commit()
-        self.session.refresh(task)
-
-        # Then
-        self.assertEqual(task.status, TaskStatus.PENDING)
-
-    def test_task_all_component_types(self):
-        """Test creating tasks for all component types."""
-        # Given
-        project = Project(name="Test Project", project_metadata={}, parameters={})
-        self.session.add(project)
-        self.session.commit()
-
-        component_types = [
-            ComponentType.STREETS,
-            ComponentType.CLUSTERS,
-            ComponentType.PUBLIC,
-            ComponentType.SUBDIVISION,
-            ComponentType.FOOTPRINT,
-            ComponentType.BUILDING_START,
-            ComponentType.BUILDING_MAX,
-        ]
-
-        # When
-        tasks = []
-        for comp_type in component_types:
-            task = Task(
-                name=f"{comp_type.value} Task",
-                project_uuid=project.uuid,
-                component_type=comp_type,
+        for idx, type in enumerate(ComponentType):
+            generate_rue(project.uuid, idx)
+            self.assertTrue(
+                Path.exists(
+                    project.get_file_path(type, ExtensionType.JSON).resolve()
+                )
             )
-            self.session.add(task)
-            tasks.append(task)
-        self.session.commit()
-
-        # Then
-        self.assertEqual(len(tasks), 7)
-        for task in tasks:
-            self.assertIsNotNone(task.uuid)
-
-    def test_task_all_statuses(self):
-        """Test creating tasks with different statuses."""
-        # Given
-        project = Project(name="Test Project", project_metadata={}, parameters={})
-        self.session.add(project)
-        self.session.commit()
-
-        statuses = [
-            TaskStatus.PENDING,
-            TaskStatus.RUNNING,
-            TaskStatus.SUCCESS,
-            TaskStatus.FAILED,
-        ]
-
-        # When
-        for status in statuses:
-            task = Task(
-                name=f"{status.value} Task",
-                project_uuid=project.uuid,
-                component_type=ComponentType.STREETS,
-                status=status,
-            )
-            self.session.add(task)
-        self.session.commit()
-
-        # Then
-        from sqlmodel import select
-        all_tasks = self.session.exec(select(Task)).all()
-        self.assertEqual(len(all_tasks), 4)
-
-    def test_task_relationship_with_project(self):
-        """Test that task-project relationship works correctly."""
-        # Given
-        project = Project(name="Test Project", project_metadata={}, parameters={})
-        self.session.add(project)
-        self.session.commit()
-        self.session.refresh(project)
-
-        task1 = Task(
-            name="Task 1",
-            project_uuid=project.uuid,
-            component_type=ComponentType.STREETS,
-        )
-        task2 = Task(
-            name="Task 2",
-            project_uuid=project.uuid,
-            component_type=ComponentType.CLUSTERS,
-        )
-
-        # When
-        self.session.add(task1)
-        self.session.add(task2)
-        self.session.commit()
-        self.session.refresh(project)
-
-        # Then
-        self.assertEqual(len(project.tasks), 2)
-        self.assertIn(task1, project.tasks)
-        self.assertIn(task2, project.tasks)
 
 
 class TestProjectParametersSchema(unittest.TestCase):
@@ -406,7 +232,8 @@ class TestProjectParametersSchema(unittest.TestCase):
             with_local_percent=20,
         )
 
-        fire_protection = FireProtection(fire_proof_partitions_with_6m_margins=False)
+        fire_protection = FireProtection(
+            fire_proof_partitions_with_6m_margins=False)
 
         tissue = Tissue(
             on_grid_lots_on_arteries=lot_config,
@@ -458,9 +285,16 @@ class TestProjectParametersSchema(unittest.TestCase):
         )
 
         # Then
-        self.assertEqual(parameters.neighbourhood.public_roads.width_of_arteries_m, 20)
-        self.assertEqual(parameters.tissue.corner_bonus.description, "Density bonus")
-        self.assertEqual(parameters.starter_buildings.off_grid_cluster_type_1.initial_width_percent, 100)
+        self.assertEqual(
+            parameters.neighbourhood.public_roads.width_of_arteries_m, 20)
+        self.assertEqual(
+            parameters.tissue.corner_bonus.description,
+            "Density bonus"
+        )
+        self.assertEqual(
+            parameters.starter_buildings.off_grid_cluster_type_1.initial_width_percent,
+            100
+        )
 
     def test_project_parameters_model_dump(self):
         """Test that ProjectParameters can be serialized to dict."""
@@ -533,17 +367,9 @@ class TestSwaggerUIDocumentation(unittest.TestCase):
         component_values = [ct.value for ct in ComponentType]
 
         # Then
-        expected = ["streets", "clusters", "public", "subdivision", "footprint", "building_start", "building_max"]
+        expected = ["site", "streets", "clusters", "public", "subdivision",
+                    "footprint", "building_start", "building_max"]
         self.assertEqual(component_values, expected)
-
-    def test_task_status_enum_values(self):
-        """Test that TaskStatus enum has all expected values."""
-        # Given / When
-        status_values = [ts.value for ts in TaskStatus]
-
-        # Then
-        expected = ["pending", "running", "success", "failed"]
-        self.assertEqual(status_values, expected)
 
 
 if __name__ == "__main__":
