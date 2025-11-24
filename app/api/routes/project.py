@@ -171,13 +171,10 @@ def get_step_data(
         project = Project(uuid=uuid)
     except ProjectDoesNotExists as e:
         raise HTTPException(status_code=404, detail=str(e))
-    data_file = project.get_file_path(step, ExtensionType.JSON)
+    data_file = project.get_file_path(
+        step, ExtensionType.JSON, filename="task.json"
+    )
 
-    task = {
-        "task_id": "",
-        "status": "",
-        "message": ""
-    }
     if Path.exists(data_file):
         data = json.loads(data_file.read_text())
         task = {
@@ -185,12 +182,23 @@ def get_step_data(
             "status": data["status"],
             "message": data["message"]
         }
+    else:
+        raise HTTPException(status_code=404, detail="Task does not exist.")
+
+    # Results
+    result = {}
+    result_file = project.get_file_path(
+        step, ExtensionType.JSON, filename="result.json"
+    )
+    if Path.exists(result_file):
+        result = json.loads(result_file.read_text())
+
     url = str(
         request.url_for(
             "get_project_file",
             uuid=project.uuid,
-            step=step,
+            step=step.value,
             extension=ExtensionType.GLTF.value,
         )
     )
-    return ComponentResponse(file=url, task=task, lucky_sheet={})
+    return ComponentResponse(file=url, task=task, result=result)

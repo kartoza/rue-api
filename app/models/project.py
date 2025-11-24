@@ -440,7 +440,7 @@ class ComponentResponse(SQLModel):
 
     file: str
     task: TaskCreateResponse
-    lucky_sheet: Optional[dict[str, Any]] = None
+    result: Optional[dict[str, Any]] = None
 
 
 # Database Models
@@ -527,10 +527,23 @@ class Project:
         """Return the folder for the current step."""
         return self.folder / f"{step_idx:02}-{STEPS[step_idx]}"
 
-    def get_file_path(self, step: ComponentType, extension: ExtensionType):
-        """Get the project file."""
+    def get_file_path(
+            self, step: ComponentType,
+            extension: ExtensionType,
+            filename: str = None
+    ):
+        """Get the project file.
+
+        If using filename,
+            it will just return the file path of the project folder.
+        If not filename,
+            it will return the first file with the given extension.
+        """
         index = STEPS.index(step.value)
         base_dir = self.get_step_folder(index)
+
+        if filename:
+            return base_dir / f"{filename}"
 
         # Find all files with the given extension
         files = list(base_dir.glob(f"*.{extension.value}"))

@@ -6,10 +6,10 @@ from rue_lib.site.runner import SiteConfig, generate_parcels
 from rue_lib.streets.runner import StreetConfig, generate_streets
 
 from app.celery_app import celery
+from app.core.config import settings
 from app.models.project import (
     STEPS, TaskStatus, Project, ComponentType, ExtensionType
 )
-from app.core.config import settings
 
 
 def process_folder_name(step_idx: int) -> str:
@@ -93,13 +93,16 @@ def generate_rue(
                 )
             )
             generate_streets(config)
-        else:
-            # Mock step
-            base_dir = Path(__file__).parent.parent
-            target_dir = base_dir / "mock" / current_step_folder_name / "outputs"
-            shutil.copytree(
-                target_dir, current_step_folder, dirs_exist_ok=True
-            )
+
+        # Mock step
+        base_dir = Path(__file__).parent.parent
+        target_dir = base_dir / "mock" / current_step_folder_name / "outputs"
+        for item in target_dir.iterdir():
+            dest = current_step_folder / item.name
+            if item.is_dir():
+                shutil.copytree(item, dest, dirs_exist_ok=True)
+            else:
+                shutil.copy2(item, dest)
 
         # Script finished successfully
         task_file.write_text(
