@@ -6,13 +6,11 @@ dependencies = [
     "fastapi>=0.114.2,<1.0.0",
     "uvicorn>=0.30,<0.39",
     "jinja2>=3.1.4,<4.0.0",
-    "python-multipart>=0.0.7,<1.0.0",
     "itsdangerous>=2.1.2,<3.0.0",
     "pydantic>=2.9,<3.0.0",
     "pydantic-settings>=2.6,<3.0.0",
     "email-validator>=2.1.0.post1,<3.0.0",
     "orjson>=3.10",
-
     "python-multipart>=0.0.7,<1.0.0",
     "email-validator>=2.1.0.post1,<3.0.0.0",
     "emails>=0.6,<1.0",
@@ -30,6 +28,11 @@ dependencies = [
     # Pin bcrypt until passlib supports newer
     "bcrypt==4.3.0",
     "pyjwt>=2.8.0,<3.0.0",
+    "celery[redis]>=5.5.3",
+    "redis>=5.0.0,<5.2.2",
+    "flower>=2.0.1",
+    "gdal==3.8.4", # Change this based on your gdal version
+    "rue-lib @ git+https://github.com/kartoza/rue-lib.git"
 ]
 
 [project.optional-dependencies]
