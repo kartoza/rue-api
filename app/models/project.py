@@ -566,10 +566,14 @@ class Project:
 
     def save_roads(self, roads):
         """Save the roads to a file."""
+        folder_input = self.folder / "input"
+        folder_input.mkdir(parents=True, exist_ok=True)
         self.file_path_roads.write_text(json.dumps(roads))
 
     def save_site(self, site):
         """Save the site to a file."""
+        folder_input = self.folder / "input"
+        folder_input.mkdir(parents=True, exist_ok=True)
         self.file_path_site.write_text(json.dumps(site))
 
     def get_path_roads(self) -> Path:

@@ -88,9 +88,11 @@ def create_project(
 
     if project_in.site is not None:
         validate_geojson_feature_collection(project_in.site, "Polygon")
+        project.save_site(project_in.site)
 
     if project_in.roads is not None:
         validate_geojson_feature_collection(project_in.roads, "LineString")
+        project.save_roads(project_in.roads)
 
     project.name = project_in.name
     project.description = project_in.description or ""
