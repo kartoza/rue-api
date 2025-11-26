@@ -1,6 +1,7 @@
 """Project and Task models for urban planning GIS platform."""
 
 import json
+import shutil
 from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
@@ -360,6 +361,13 @@ class ProjectCreate(SQLModel):
     )
 
 
+class TaskUpdate(SQLModel):
+    """Schema for task update request."""
+    geojson: dict[str, Any] = Field(
+        description="GeoJSON for the updates."
+    )
+
+
 class ProjectResponse(SQLModel):
     """Schema for project creation response."""
 
@@ -461,13 +469,13 @@ class Project:
         self.file_path_metadata.write_text(
             json.dumps(self.project_metadata or {}, indent=2))
 
-    def generate(self):
+    def generate(self, step_idx: int = 0, max_steps_idx: int = None):
         """Generate the project."""
         from app.tasks.generate_rue import generate_rue
         if settings.ASYNC_SIGNALS:
-            generate_rue.delay(str(self.uuid), 0)
+            generate_rue.delay(str(self.uuid), step_idx)
         else:
-            generate_rue(str(self.uuid), 0)
+            generate_rue(str(self.uuid), step_idx)
 
     def get_step_folder(self, step_idx):
         """Return the folder for the current step."""
@@ -535,3 +543,11 @@ class Project:
             return self.file_path_site
         base_dir = Path(__file__).parent.parent
         return base_dir / "example_data" / "site.geojson"
+
+    def remove_step_after(self, step: StepType):
+        """Remove step after the current step."""
+        step_idx = STEPS.index(step.value)
+        for idx in range(step_idx + 1, len(STEPS)):
+            folder_to_remove = self.get_step_folder(idx)
+            if folder_to_remove.exists():
+                shutil.rmtree(folder_to_remove)

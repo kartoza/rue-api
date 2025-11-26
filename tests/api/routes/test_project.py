@@ -1,10 +1,13 @@
 import json
 from pathlib import Path
+from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.models import ProjectCreate, Project
+from app.tasks.generate_rue import generate_rue
+from app.types import ExtensionType, StepType, STEPS
 
 
 def test_create_project_empty(client: TestClient) -> None:
@@ -112,3 +115,94 @@ def test_create_project_working_input(client: TestClient) -> None:
         assert site_data == json.load(f)
     with open(project.get_path_roads()) as f:
         assert roads_data == json.load(f)
+
+
+@patch("app.tasks.generate_rue.generate_rue", wraps=generate_rue)
+def test_update_task(mock_generate_rue, client: TestClient) -> None:
+    """Test update_task."""
+    assert mock_generate_rue.call_count == 0
+
+    parameters = (
+        ProjectCreate.model_config["json_schema_extra"]["examples"][0][
+            "parameters"]
+    )
+    data = {
+        "name": "Test Project",
+        "description": "Test Project Description",
+        "parameters": parameters
+    }
+    r = client.post(f"{settings.API_V1_STR}/projects", json=data)
+    assert r.status_code == 201
+
+    uuid = r.json()["uuid"]
+    project = Project(uuid=uuid)
+    assert project.name == "Test Project"
+    assert project.description == "Test Project Description"
+    assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 20
+    assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 15
+
+    # Load fixture files
+    fixtures_dir = Path(__file__).parent / "fixtures"
+    update_geojson = fixtures_dir / "parcel.geojson"
+
+    step_geojson = {}
+    for step in StepType:
+        geojson_file = project.get_file_path(
+            step, ExtensionType.GEOJSON
+        )
+        with open(geojson_file) as f:
+            step_geojson[step.value] = json.load(f)
+
+    # Check how many call the generate_rue
+    assert mock_generate_rue.call_count == len(STEPS) + 1
+
+    # ----------------------------------
+    # Update the step
+    # ----------------------------------
+    target_step = StepType.STREETS
+    r = client.put(
+        f"{settings.API_V1_STR}/projects/{uuid}/{target_step.value}",
+        json={}
+    )
+    assert r.status_code == 422
+
+    # Check remove_step_after
+    project.remove_step_after(target_step)
+    for step in StepType:
+        geojson_file = project.get_file_path(
+            step, ExtensionType.GEOJSON
+        )
+        if step in [StepType.SITE, StepType.STREETS]:
+            assert Path(geojson_file).exists() is True
+        else:
+            assert geojson_file is None
+
+    with open(update_geojson) as f:
+        new_geojson = json.load(f)
+        r = client.put(
+            f"{settings.API_V1_STR}/projects/{uuid}/{target_step.value}",
+            json={"geojson": new_geojson}
+        )
+        assert r.status_code == 204
+
+        step_index = STEPS.index(target_step.value)
+        remaining_step = len(STEPS) - step_index
+
+        # Check how many call the generate_rue
+        assert mock_generate_rue.call_count == (
+                len(STEPS) + remaining_step + 1
+        )
+
+        # New data
+        project = Project(uuid=uuid)
+        for step in StepType:
+            geojson_file = project.get_file_path(
+                step, ExtensionType.GEOJSON
+            )
+            with open(geojson_file) as f:
+                geojson = json.load(f)
+                if step == target_step:
+                    assert step_geojson[step.value] != geojson
+                    assert new_geojson == geojson
+                else:
+                    assert step_geojson[step.value] == geojson

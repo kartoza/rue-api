@@ -16,6 +16,56 @@ def process_folder_name(step_idx: int) -> str:
     return f"{step_idx:02}-{STEPS[step_idx]}"
 
 
+def mock_step(current_step_folder_name: str, current_step_folder: Path):
+    """Mock step."""
+    base_dir = Path(__file__).parent.parent
+    target_dir = base_dir / "mock" / current_step_folder_name / "outputs"
+    for item in target_dir.iterdir():
+        dest = current_step_folder / item.name
+        if item.is_dir():
+            shutil.copytree(item, dest, dirs_exist_ok=True)
+        else:
+            shutil.copy2(item, dest)
+
+
+def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
+    """Run RUE lib for a step."""
+    # SITE
+    if step_idx == 0:
+        # generate parcels
+        config = SiteConfig(
+            site_path=str(project.get_path_site()),
+            roads_path=str(project.get_path_roads()),
+            output_dir=f"{current_step_folder}",
+            rows=3,  # Number of grid rows
+            cols=3,  # Number of grid columns
+            pad_m=50.0,  # Grid padding in meters
+            min_parcel_area_m2=5.0,  # Minimum parcel area
+            subtract_roads=True,  # Whether to carve out road corridors
+        )
+        generate_parcels(config)
+    # STREETS
+    elif step_idx == 1:
+        filepath = project.get_file_path(
+            StepType.SITE, ExtensionType.GEOJSON
+        )
+        # generate parcels
+        config = StreetConfig(
+            parcel_path=str(filepath),
+            roads_path=str(project.get_path_roads()),
+            output_dir=f"{current_step_folder}",
+            on_grid_partition_depth_arterial_roads=(
+                project.parameters.neighbourhood.
+                on_grid_partitions.depth_along_arteries_m
+            ),
+            on_grid_partition_depth_secondary_roads=(
+                project.parameters.neighbourhood.
+                on_grid_partitions.depth_along_secondaries_m
+            )
+        )
+        generate_streets(config)
+
+
 @celery.task(bind=True)
 def generate_rue(
         self, uuid: str, step_idx: int, max_steps_idx: int = None
@@ -58,50 +108,14 @@ def generate_rue(
 
     # Run the script
     try:
-        # SITE
-        if step_idx == 0:
-            # generate parcels
-            config = SiteConfig(
-                site_path=str(project.get_path_site()),
-                roads_path=str(project.get_path_roads()),
-                output_dir=f"{current_step_folder}",
-                rows=3,  # Number of grid rows
-                cols=3,  # Number of grid columns
-                pad_m=50.0,  # Grid padding in meters
-                min_parcel_area_m2=5.0,  # Minimum parcel area
-                subtract_roads=True,  # Whether to carve out road corridors
-            )
-            generate_parcels(config)
-        # STREETS
-        elif step_idx == 1:
-            filepath = project.get_file_path(
-                StepType.SITE, ExtensionType.GEOJSON
-            )
-            # generate parcels
-            config = StreetConfig(
-                parcel_path=str(filepath),
-                roads_path=str(project.get_path_roads()),
-                output_dir=f"{current_step_folder}",
-                on_grid_partition_depth_arterial_roads=(
-                    project.parameters.neighbourhood.
-                    on_grid_partitions.depth_along_arteries_m
-                ),
-                on_grid_partition_depth_secondary_roads=(
-                    project.parameters.neighbourhood.
-                    on_grid_partitions.depth_along_secondaries_m
-                )
-            )
-            generate_streets(config)
+        if settings.ENVIRONMENT != "test":
+            # Run RUE lib for a step
+            run_rue_lib(step_idx, project, current_step_folder)
 
-        # Mock step
-        base_dir = Path(__file__).parent.parent
-        target_dir = base_dir / "mock" / current_step_folder_name / "outputs"
-        for item in target_dir.iterdir():
-            dest = current_step_folder / item.name
-            if item.is_dir():
-                shutil.copytree(item, dest, dirs_exist_ok=True)
-            else:
-                shutil.copy2(item, dest)
+        # TODO:
+        #  Mock step
+        #  When the rue lib is ready, Remove this mock step
+        mock_step(current_step_folder_name, current_step_folder)
 
         # Script finished successfully
         task_file.write_text(
@@ -123,7 +137,7 @@ def generate_rue(
                 uuid, step_idx=step_idx + 1, max_steps_idx=max_steps_idx
             )
     except Exception as e:
-        # Script finished successfully
+        # Error on the step
         task_file.write_text(
             json.dumps(
                 {

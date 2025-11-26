@@ -15,16 +15,17 @@ from app.models.project import (
     Project,
     ComponentResponse,
     ProjectCreate,
-    ProjectResponse
+    ProjectResponse,
+    TaskUpdate
 )
-from app.types import StepType, ExtensionType
+from app.types import StepType, ExtensionType, STEPS
 
 router = APIRouter(tags=["Projects"])
 
 
 def validate_geojson_feature_collection(
         data: dict[str, Any],
-        geometry_type: str
+        geometry_type: str = None
 ) -> None:
     """Validate GeoJSON FeatureCollection structure."""
     if not isinstance(data, dict):
@@ -65,7 +66,7 @@ def validate_geojson_feature_collection(
             )
 
         geom_type = geometry.get("type")
-        if geom_type != geometry_type:
+        if geometry_type and geom_type != geometry_type:
             raise HTTPException(
                 status_code=400,
                 detail=(
@@ -118,7 +119,7 @@ def create_project(
 
 @router.get(
     "/projects/{uuid}/{step}.{extension}",
-    status_code=202,
+    status_code=200,
     responses={
         404: ProjectDoesNotExists.response_schema,
     },
@@ -155,7 +156,7 @@ def get_project_file(
 @router.get(
     "/projects/{uuid}/{step}",
     response_model=ComponentResponse,
-    status_code=202,
+    status_code=200,
     responses={
         404: ProjectDoesNotExists.response_schema,
     },
@@ -207,8 +208,7 @@ def get_step_data(
 
 @router.put(
     "/projects/{uuid}/{step}",
-    response_model=ComponentResponse,
-    status_code=202,
+    status_code=204,
     responses={
         404: ProjectDoesNotExists.response_schema,
     },
@@ -218,8 +218,8 @@ def put_step_data(
         session: SessionDep,
         uuid: UUID,
         step: StepType,
-        request: Request
-) -> ComponentResponse:
+        task_update: TaskUpdate
+) -> None:
     """Update the step data.
 
     Mostly update the geojson output.
@@ -229,6 +229,7 @@ def put_step_data(
         project = Project(uuid=uuid)
     except ProjectDoesNotExists as e:
         raise HTTPException(status_code=404, detail=str(e))
+
     data_file = project.get_file_path(
         step, ExtensionType.JSON, filename="task.json"
     )
@@ -236,20 +237,17 @@ def put_step_data(
     if not Path.exists(data_file):
         raise HTTPException(status_code=404, detail="Task does not exist.")
 
-    # Results
-    result = {}
-    result_file = project.get_file_path(
-        step, ExtensionType.JSON, filename="result.json"
-    )
-    if Path.exists(result_file):
-        result = json.loads(result_file.read_text())
-
-    url = str(
-        request.url_for(
-            "get_project_file",
-            uuid=project.uuid,
-            step=step.value,
-            extension=ExtensionType.GLTF.value,
+    if task_update.geojson is None:
+        raise HTTPException(
+            status_code=400, detail="geojson is required on payload."
         )
-    )
-    return ComponentResponse(file=url, task=task, result=result)
+    validate_geojson_feature_collection(task_update.geojson)
+    filename = project.get_file_path(step, ExtensionType.GEOJSON)
+    filename.write_text(json.dumps(task_update.geojson, indent=2))
+
+    # Remove all folders after the current step
+    step_idx = STEPS.index(step.value)
+    project.remove_step_after(step)
+
+    project.generate(step_idx=step_idx + 1)
+    return None
