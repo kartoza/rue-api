@@ -1,7 +1,6 @@
 """Project and Task models for urban planning GIS platform."""
 
 import json
-from enum import Enum
 from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
@@ -9,66 +8,8 @@ from uuid import UUID
 from sqlmodel import Field, SQLModel
 
 from app.core.config import settings
-
-
-class TaskStatus(str, Enum):
-    """Task status enumeration."""
-
-    PENDING = "pending"
-    RUNNING = "running"
-    SUCCESS = "success"
-    FAILED = "failed"
-
-
-class ComponentType(str, Enum):
-    """Component type enumeration."""
-
-    SITE = "site"
-    STREETS = "streets"
-    CLUSTERS = "clusters"
-    PUBLIC = "public"
-    SUBDIVISION = "subdivision"
-    FOOTPRINT = "footprint"
-    BUILDING_START = "building_start"
-    BUILDING_MAX = "building_max"
-
-
-class ExtensionType(str, Enum):
-    """Extension type enumeration."""
-
-    GEOJSON = "geojson"
-    GLTF = "gltf"
-    JSON = "json"
-
-
-STEPS = [
-    ComponentType.SITE.value,
-    ComponentType.STREETS.value,
-    ComponentType.CLUSTERS.value,
-    ComponentType.PUBLIC.value,
-    ComponentType.SUBDIVISION.value,
-    ComponentType.FOOTPRINT.value,
-    ComponentType.BUILDING_START.value,
-    ComponentType.BUILDING_MAX.value
-]
-
-
-class ProjectDoesNotExists(Exception):
-    """Project does not exist."""
-
-    response_schema = {
-        "description": "Project not found",
-        "content": {
-            "application/json": {
-                "example": {"detail": "Project does not exist"}
-            }
-        },
-    }
-
-    def __init__(self, message):
-        """Initialize the exception."""
-        self.message = message
-        super().__init__(self.message)
+from app.exceptions import ProjectDoesNotExists
+from app.types import StepType, ExtensionType, STEPS
 
 
 # Parameter Schemas
@@ -427,7 +368,7 @@ class ProjectResponse(SQLModel):
     file: str
 
 
-class TaskCreateResponse(SQLModel):
+class TaskResponse(SQLModel):
     """Schema for task creation response."""
 
     task_id: UUID
@@ -439,13 +380,18 @@ class ComponentResponse(SQLModel):
     """Schema for component GET response."""
 
     file: str
-    task: TaskCreateResponse
+    task: TaskResponse
     result: Optional[dict[str, Any]] = None
 
 
-# Database Models
+# ----------------------------------
+# Project class
+# ----------------------------------
 class Project:
-    """Project model."""
+    """Project class.
+
+    It will fetch the data from the project folder and store it in the class.
+    """
 
     uuid: UUID
     name: str
@@ -528,7 +474,7 @@ class Project:
         return self.folder / f"{step_idx:02}-{STEPS[step_idx]}"
 
     def get_file_path(
-            self, step: ComponentType,
+            self, step: StepType,
             extension: ExtensionType,
             filename: str = None
     ):
@@ -581,11 +527,11 @@ class Project:
         if Path.exists(self.file_path_roads):
             return self.file_path_roads
         base_dir = Path(__file__).parent.parent
-        return base_dir / "data" / "roads.geojson"
+        return base_dir / "example_data" / "roads.geojson"
 
     def get_path_site(self) -> Path:
         """Return path site"""
         if Path.exists(self.file_path_site):
             return self.file_path_site
         base_dir = Path(__file__).parent.parent
-        return base_dir / "data" / "site.geojson"
+        return base_dir / "example_data" / "site.geojson"

@@ -10,7 +10,6 @@ from sqlmodel import Session, SQLModel, create_engine
 from app.models.project import (
     Amenities,
     BlockStructureConfig,
-    ComponentType,
     CornerBonus,
     FireProtection,
     InitialBuildingPercent,
@@ -33,8 +32,9 @@ from app.models.project import (
     StreetSection,
     Tissue,
     Trees,
-    UrbanBlockStructure, ExtensionType,
+    UrbanBlockStructure,
 )
+from app.types import StepType, ExtensionType
 
 
 class TestProjectModel(unittest.TestCase):
@@ -133,7 +133,7 @@ class TestTaskModel(unittest.TestCase):
         project.description = "A test project"
         project.save_to_file()
 
-        for idx, type in enumerate(ComponentType):
+        for idx, type in enumerate(StepType):
             generate_rue(project.uuid, idx)
             self.assertTrue(
                 Path.exists(
@@ -362,9 +362,9 @@ class TestSwaggerUIDocumentation(unittest.TestCase):
         self.assertIn("starter_buildings", schema["required"])
 
     def test_component_type_enum_values(self):
-        """Test that ComponentType enum has all expected values."""
+        """Test that StepType enum has all expected values."""
         # Given / When
-        component_values = [ct.value for ct in ComponentType]
+        component_values = [ct.value for ct in StepType]
 
         # Then
         expected = ["site", "streets", "clusters", "public", "subdivision",

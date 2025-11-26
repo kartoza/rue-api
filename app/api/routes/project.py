@@ -10,15 +10,14 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from app.api.deps import SessionDep
+from app.exceptions import ProjectDoesNotExists
 from app.models.project import (
     Project,
-    ProjectDoesNotExists,
     ComponentResponse,
-    ComponentType,
-    ExtensionType,
     ProjectCreate,
     ProjectResponse
 )
+from app.types import StepType, ExtensionType
 
 router = APIRouter(tags=["Projects"])
 
@@ -128,7 +127,7 @@ def get_project_file(
         *,
         session: SessionDep,
         uuid: UUID,
-        step: ComponentType,
+        step: StepType,
         extension: ExtensionType,
 ) -> FileResponse:
     """Trigger a single step of a project generation task."""
@@ -165,7 +164,7 @@ def get_step_data(
         *,
         session: SessionDep,
         uuid: UUID,
-        step: ComponentType,
+        step: StepType,
         request: Request
 ) -> ComponentResponse:
     """Get sttp data."""
@@ -185,6 +184,56 @@ def get_step_data(
             "message": data["message"]
         }
     else:
+        raise HTTPException(status_code=404, detail="Task does not exist.")
+
+    # Results
+    result = {}
+    result_file = project.get_file_path(
+        step, ExtensionType.JSON, filename="result.json"
+    )
+    if Path.exists(result_file):
+        result = json.loads(result_file.read_text())
+
+    url = str(
+        request.url_for(
+            "get_project_file",
+            uuid=project.uuid,
+            step=step.value,
+            extension=ExtensionType.GLTF.value,
+        )
+    )
+    return ComponentResponse(file=url, task=task, result=result)
+
+
+@router.put(
+    "/projects/{uuid}/{step}",
+    response_model=ComponentResponse,
+    status_code=202,
+    responses={
+        404: ProjectDoesNotExists.response_schema,
+    },
+)
+def put_step_data(
+        *,
+        session: SessionDep,
+        uuid: UUID,
+        step: StepType,
+        request: Request
+) -> ComponentResponse:
+    """Update the step data.
+
+    Mostly update the geojson output.
+    So it can regenerate the files.
+    """
+    try:
+        project = Project(uuid=uuid)
+    except ProjectDoesNotExists as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    data_file = project.get_file_path(
+        step, ExtensionType.JSON, filename="task.json"
+    )
+
+    if not Path.exists(data_file):
         raise HTTPException(status_code=404, detail="Task does not exist.")
 
     # Results

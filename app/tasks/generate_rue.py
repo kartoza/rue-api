@@ -7,9 +7,8 @@ from rue_lib.streets.runner import StreetConfig, generate_streets
 
 from app.celery_app import celery
 from app.core.config import settings
-from app.models.project import (
-    STEPS, TaskStatus, Project, ComponentType, ExtensionType
-)
+from app.models.project import Project
+from app.types import TaskStatus, StepType, ExtensionType, STEPS
 
 
 def process_folder_name(step_idx: int) -> str:
@@ -76,7 +75,7 @@ def generate_rue(
         # STREETS
         elif step_idx == 1:
             filepath = project.get_file_path(
-                ComponentType.SITE, ExtensionType.GEOJSON
+                StepType.SITE, ExtensionType.GEOJSON
             )
             # generate parcels
             config = StreetConfig(
