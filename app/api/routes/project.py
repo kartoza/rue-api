@@ -76,6 +76,28 @@ def validate_geojson_feature_collection(
             )
 
 
+@router.get("/projects", response_model=list[ProjectResponse], status_code=200)
+def get_projects(
+        *,
+        session: SessionDep,
+        current_user: CurrentUser,
+) -> list[ProjectResponse]:
+    """Return user projects."""
+    from sqlmodel import select
+    from app.models.project_model import ProjectUser
+
+    query = select(ProjectUser).where(ProjectUser.user_id == current_user.id)
+    projects = session.exec(query).all()
+    
+    return [
+        ProjectResponse(
+            uuid=project.uuid,
+            name=project.name
+        )
+        for project in projects
+    ]
+
+
 @router.post("/projects", response_model=ProjectResponse, status_code=201)
 def create_project(
         *,
@@ -107,18 +129,9 @@ def create_project(
 
     # Run task
     project.generate()
-    url = str(
-        request.url_for(
-            "get_project_file",
-            uuid=project.uuid,
-            step="site",
-            extension=ExtensionType.GLTF.value,
-        )
-    )
     return ProjectResponse(
         uuid=project.uuid,
-        name=project_in.name,
-        file=url,
+        name=project_in.name
     )
 
 

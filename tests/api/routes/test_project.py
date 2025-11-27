@@ -62,6 +62,18 @@ def test_create_project_works(
     assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 20
     assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 15
 
+    # Test return projects
+    r = client.get(
+        f"{settings.API_V1_STR}/projects",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    assert len(r.json()) == 1
+    assert r.json()[0] == {
+        "uuid": uuid,
+        "name": "Test Project",
+    }
+
 
 def test_create_project_error_input(
         client: TestClient, superuser_token_headers: dict[str, str]

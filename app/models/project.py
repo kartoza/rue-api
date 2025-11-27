@@ -375,7 +375,6 @@ class ProjectResponse(SQLModel):
 
     uuid: UUID
     name: str
-    file: str
 
 
 class TaskResponse(SQLModel):
