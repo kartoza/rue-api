@@ -7,8 +7,8 @@ from rue_lib.streets.runner import StreetConfig, generate_streets
 
 from app.celery_app import celery
 from app.core.config import settings
-from app.models.project import Project
 from app.definition import TaskStatus, StepType, ExtensionType, STEPS
+from app.models.project import Project
 
 
 def process_folder_name(step_idx: int) -> str:
@@ -113,7 +113,8 @@ def generate_rue(
         # TODO:
         #  Mock step
         #  When the rue lib is ready, Remove this mock step
-        mock_step(current_step_folder_name, current_step_folder)
+        if not (settings.ENVIRONMENT != "test" and step_idx in [0, 1]):
+            mock_step(current_step_folder_name, current_step_folder)
 
         # Script finished successfully
         task_file.write_text(

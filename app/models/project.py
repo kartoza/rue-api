@@ -9,10 +9,10 @@ from uuid import UUID
 from sqlmodel import Field, SQLModel
 
 from app.core.config import settings
+from app.definition import StepType, ExtensionType, STEPS
 from app.exceptions import ProjectDoesNotExists
 from app.models.project_model import ProjectUser
 from app.models.user import User
-from app.definition import StepType, ExtensionType, STEPS
 
 
 # Parameter Schemas
@@ -375,6 +375,16 @@ class ProjectResponse(SQLModel):
 
     uuid: UUID
     name: str
+
+
+class ProjectDetailResponse(SQLModel):
+    """Schema for project detail response."""
+
+    uuid: UUID
+    name: str
+    description: Optional[str] = None
+    parameters: ProjectParameters
+    project_metadata: Optional[dict[str, Any]]
 
 
 class TaskResponse(SQLModel):

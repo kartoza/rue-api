@@ -6,10 +6,10 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
+from app.definition import ExtensionType, StepType, STEPS
 from app.models import User
 from app.models.project import ProjectCreate, Project
 from app.tasks.generate_rue import generate_rue
-from app.definition import ExtensionType, StepType, STEPS
 
 
 def test_create_project_no_login(client: TestClient) -> None:
@@ -73,6 +73,15 @@ def test_create_project_works(
         "uuid": uuid,
         "name": "Test Project",
     }
+
+    # Test return project
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["name"] == "Test Project"
+    assert r.json()["uuid"] == uuid
 
 
 def test_create_project_error_input(

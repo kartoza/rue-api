@@ -10,15 +10,16 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from app.api.deps import CurrentUser, SessionDep
+from app.definition import StepType, ExtensionType, STEPS
 from app.exceptions import ProjectDoesNotExists
 from app.models.project import (
     Project,
     ComponentResponse,
     ProjectCreate,
     ProjectResponse,
-    TaskUpdate
+    ProjectDetailResponse,
+    TaskUpdate,
 )
-from app.definition import StepType, ExtensionType, STEPS
 
 router = APIRouter(tags=["Projects"])
 
@@ -88,7 +89,7 @@ def get_projects(
 
     query = select(ProjectUser).where(ProjectUser.user_id == current_user.id)
     projects = session.exec(query).all()
-    
+
     return [
         ProjectResponse(
             uuid=project.uuid,
@@ -132,6 +133,34 @@ def create_project(
     return ProjectResponse(
         uuid=project.uuid,
         name=project_in.name
+    )
+
+
+@router.get(
+    "/projects/{uuid}",
+    status_code=200,
+    responses={
+        404: ProjectDoesNotExists.response_schema,
+    },
+)
+def get_project_detail(
+        *,
+        session: SessionDep,
+        current_user: CurrentUser,
+        uuid: UUID
+) -> ProjectDetailResponse:
+    """Return project details."""
+    try:
+        project = Project.get(session=session, user=current_user, uuid=uuid)
+    except ProjectDoesNotExists as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return ProjectDetailResponse(
+        uuid=project.uuid,
+        name=project.name,
+        description=project.description,
+        parameters=project.parameters,
+        project_metadata=project.project_metadata,
     )
 
 
