@@ -165,6 +165,39 @@ def get_project_detail(
 
 
 @router.get(
+    "/projects/{uuid}/roads.geojson",
+    status_code=200,
+    responses={
+        404: ProjectDoesNotExists.response_schema,
+    },
+)
+def get_roads_file(
+        *,
+        session: SessionDep,
+        current_user: CurrentUser,
+        uuid: UUID
+) -> FileResponse:
+    """Trigger a single step of a project generation task."""
+    try:
+        project = Project.get(session=session, user=current_user, uuid=uuid)
+    except ProjectDoesNotExists as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    filename = f"roads.geojson"
+    file_path = project.get_path_roads()
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"File '{filename}' not found."
+        )
+
+    return FileResponse(
+        path=file_path,
+        media_type="application/geo+json",
+        filename=filename,
+    )
+
+
+@router.get(
     "/projects/{uuid}/{step}.{extension}",
     status_code=200,
     responses={
