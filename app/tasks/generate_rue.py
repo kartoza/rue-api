@@ -37,6 +37,7 @@ def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
             site_path=str(project.get_path_site()),
             roads_path=str(project.get_path_roads()),
             output_dir=f"{current_step_folder}",
+            geopackage_path=f"{current_step_folder}/output.gpkg",
             road_arterial_width_m=project.parameters.neighbourhood.public_roads.width_of_arteries_m,
             road_secondary_width_m=project.parameters.neighbourhood.public_roads.width_of_secondaries_m
         )

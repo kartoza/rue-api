@@ -9,7 +9,7 @@ from uuid import UUID
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
-from app.api.deps import SessionDep
+from app.api.deps import CurrentUser, SessionDep
 from app.exceptions import ProjectDoesNotExists
 from app.models.project import (
     Project,
@@ -78,13 +78,20 @@ def validate_geojson_feature_collection(
 
 @router.post("/projects", response_model=ProjectResponse, status_code=201)
 def create_project(
-        *, session: SessionDep, project_in: ProjectCreate, request: Request
+        *,
+        session: SessionDep,
+        current_user: CurrentUser,
+        project_in: ProjectCreate,
+        request: Request
 ) -> ProjectResponse:
     """Create a new project with GeoJSON validation."""
-    # Create the folder for the project
-    uuid = uuid_pkg.uuid4()
-    Project.create(uuid=uuid)
-    project = Project(uuid=uuid)
+    # Create database record
+    project = Project.create(
+        session=session,
+        user=current_user,
+        name=project_in.name,
+        description=project_in.description or "",
+    )
 
     if project_in.site is not None:
         validate_geojson_feature_collection(project_in.site, "Polygon")
@@ -94,11 +101,9 @@ def create_project(
         validate_geojson_feature_collection(project_in.roads, "LineString")
         project.save_roads(project_in.roads)
 
-    project.name = project_in.name
-    project.description = project_in.description or ""
     project.project_metadata = project_in.project_metadata or {}
-    project.parameters = project_in.parameters
-    project.save_to_file()
+    project.insert_parameters(project_in.parameters)
+    project.update(session=session)
 
     # Run task
     project.generate()
@@ -127,13 +132,14 @@ def create_project(
 def get_project_file(
         *,
         session: SessionDep,
+        current_user: CurrentUser,
         uuid: UUID,
         step: StepType,
         extension: ExtensionType,
 ) -> FileResponse:
     """Trigger a single step of a project generation task."""
     try:
-        project = Project(uuid=uuid)
+        project = Project.get(session=session, user=current_user, uuid=uuid)
     except ProjectDoesNotExists as e:
         raise HTTPException(status_code=404, detail=str(e))
     filename = f"{step.value}.{extension.value}"
@@ -164,13 +170,14 @@ def get_project_file(
 def get_step_data(
         *,
         session: SessionDep,
+        current_user: CurrentUser,
         uuid: UUID,
         step: StepType,
         request: Request
 ) -> ComponentResponse:
     """Get sttp data."""
     try:
-        project = Project(uuid=uuid)
+        project = Project.get(session=session, user=current_user, uuid=uuid)
     except ProjectDoesNotExists as e:
         raise HTTPException(status_code=404, detail=str(e))
     data_file = project.get_file_path(
@@ -216,6 +223,7 @@ def get_step_data(
 def put_step_data(
         *,
         session: SessionDep,
+        current_user: CurrentUser,
         uuid: UUID,
         step: StepType,
         task_update: TaskUpdate
@@ -226,7 +234,7 @@ def put_step_data(
     So it can regenerate the files.
     """
     try:
-        project = Project(uuid=uuid)
+        project = Project.get(session=session, user=current_user, uuid=uuid)
     except ProjectDoesNotExists as e:
         raise HTTPException(status_code=404, detail=str(e))
 

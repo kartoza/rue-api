@@ -1,13 +1,13 @@
 """Unit tests for Project and Task models and business logic."""
 
 import unittest
-import uuid as uuid_pkg
 from pathlib import Path
 from uuid import UUID
 
 from sqlmodel import Session, SQLModel, create_engine
 
 from app.models.project import (
+    Project,
     Amenities,
     BlockStructureConfig,
     CornerBonus,
@@ -20,7 +20,6 @@ from app.models.project import (
     OffGridPartitions,
     OnGridPartitions,
     OpenSpaces,
-    Project,
     ProjectCreate,
     ProjectParameters,
     PublicRoads,
@@ -35,6 +34,7 @@ from app.models.project import (
     UrbanBlockStructure,
 )
 from app.types import StepType, ExtensionType
+from tests.utils.user import create_random_user
 
 
 class TestProjectModel(unittest.TestCase):
@@ -53,37 +53,46 @@ class TestProjectModel(unittest.TestCase):
     def test_create_project_minimal(self):
         """Test creating a project with minimal required fields."""
         # Given
-        uuid = uuid_pkg.uuid4()
-        Project.create(uuid)
-        project = Project(uuid=uuid)
-        project.name = "Test Project"
-        project.description = "A test project"
-        project.save_to_file()
+        user = create_random_user(self.session)
+        project = Project.create(
+            session=self.session,
+            name="Test Project",
+            description="Description.",
+            user=user
+        )
 
         # Then
-        project = Project(uuid=uuid)
+        project = Project.get(self.session, project.uuid, user=user)
         self.assertIsNotNone(project.uuid)
         self.assertEqual(project.name, "Test Project")
-        self.assertEqual(project.description, "A test project")
+        self.assertEqual(project.description, "Description.")
         self.assertIsInstance(project.uuid, UUID)
+        self.assertEqual(project.project_user.user_id, user.id)
 
     def test_create_project_with_parameters(self):
         """Test creating a project with full parameters."""
         # Given
-        parameters = (
-            ProjectCreate.model_config["json_schema_extra"]["examples"][0][
+        parameters = ProjectParameters(
+            **ProjectCreate.model_config["json_schema_extra"]["examples"][0][
                 "parameters"]
         )
-        uuid = uuid_pkg.uuid4()
-        Project.create(uuid)
-        project = Project(uuid=uuid)
+        user = create_random_user(self.session)
+        project = Project.create(
+            session=self.session,
+            name="Test Project",
+            description="Description.",
+            user=user
+        )
         project.name = "Full Test Project"
         project.description = "Project with parameters"
         project.project_metadata = {"author": "test"}
         project.insert_parameters(parameters)
-        project.save_to_file()
+        project.update(session=self.session)
 
-        project = Project(uuid=uuid)
+        # Then
+        project = Project.get(self.session, project.uuid, user=user)
+        self.assertEqual(project.name, "Full Test Project")
+        self.assertEqual(project.description, "Project with parameters")
         # Then
         self.assertEqual(
             project.parameters.neighbourhood.public_roads.width_of_arteries_m,
@@ -98,15 +107,16 @@ class TestProjectModel(unittest.TestCase):
     def test_create_project_without_description(self):
         """Test creating a project without optional description."""
         # Given
-        uuid = uuid_pkg.uuid4()
-        Project.create(uuid)
-        project = Project(uuid=uuid)
-        project.name = "Minimal Project"
-        project.save_to_file()
+        user = create_random_user(self.session)
+        project = Project.create(
+            session=self.session,
+            name="Minimal Project",
+            user=user
+        )
 
         # Then
-        project = Project(uuid=uuid)
-        self.assertEqual(project.description, "")
+        project = Project.get(self.session, project.uuid, user=user)
+        self.assertEqual(project.description, None)
         self.assertEqual(project.name, "Minimal Project")
 
 
@@ -126,12 +136,12 @@ class TestTaskModel(unittest.TestCase):
     def test_create_task_for_project(self):
         """Test creating a task associated with a project."""
         from app.tasks.generate_rue import generate_rue
-        uuid = uuid_pkg.uuid4()
-        Project.create(uuid)
-        project = Project(uuid=uuid)
-        project.name = "Test Project"
-        project.description = "A test project"
-        project.save_to_file()
+        user = create_random_user(self.session)
+        project = Project.create(
+            session=self.session,
+            name="Minimal Project",
+            user=user
+        )
 
         for idx, type in enumerate(StepType):
             generate_rue(project.uuid, idx)

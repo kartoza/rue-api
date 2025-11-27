@@ -3,21 +3,41 @@ from pathlib import Path
 from unittest.mock import patch
 
 from fastapi.testclient import TestClient
+from sqlmodel import Session
 
 from app.core.config import settings
-from app.models import ProjectCreate, Project
+from app.models import User
+from app.models.project import ProjectCreate, Project
 from app.tasks.generate_rue import generate_rue
 from app.types import ExtensionType, StepType, STEPS
 
 
-def test_create_project_empty(client: TestClient) -> None:
+def test_create_project_no_login(client: TestClient) -> None:
+    """Test creating a project with not login."""
+    data = {}
+    r = client.post(f"{settings.API_V1_STR}/projects", json=data)
+    assert r.status_code == 401
+
+
+def test_create_project_empty(
+        client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
     """Test creating a project with empty parameters using API endpoint."""
-    login_data = {}
-    r = client.post(f"{settings.API_V1_STR}/projects", json=login_data)
-    assert r.status_code == 422
+    data = {}
+    r = client.post(
+        f"{settings.API_V1_STR}/projects",
+        json=data,
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 422  # Validation error for empty data
 
 
-def test_create_project_works(client: TestClient) -> None:
+def test_create_project_works(
+        client: TestClient,
+        superuser_token_headers: dict[str, str],
+        db: Session,
+        superuser: User
+) -> None:
     """Test creating a project with full parameters using API endpoint."""
     parameters = (
         ProjectCreate.model_config["json_schema_extra"]["examples"][0][
@@ -28,18 +48,24 @@ def test_create_project_works(client: TestClient) -> None:
         "description": "Test Project Description",
         "parameters": parameters
     }
-    r = client.post(f"{settings.API_V1_STR}/projects", json=data)
+    r = client.post(
+        f"{settings.API_V1_STR}/projects",
+        json=data,
+        headers=superuser_token_headers,
+    )
     assert r.status_code == 201
 
     uuid = r.json()["uuid"]
-    project = Project(uuid=uuid)
+    project = Project.get(session=db, uuid=uuid, user=superuser)
     assert project.name == "Test Project"
     assert project.description == "Test Project Description"
     assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 20
     assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 15
 
 
-def test_create_project_error_input(client: TestClient) -> None:
+def test_create_project_error_input(
+        client: TestClient, superuser_token_headers: dict[str, str]
+) -> None:
     """Test creating a project with full parameters using API endpoint.
 
     But the site and roads are not valid geojson.
@@ -66,13 +92,23 @@ def test_create_project_error_input(client: TestClient) -> None:
         "site": roads_data,
         "roads": site_data
     }
-    r = client.post(f"{settings.API_V1_STR}/projects", json=data)
+    r = client.post(
+        f"{settings.API_V1_STR}/projects",
+        json=data,
+        headers=superuser_token_headers,
+    )
     assert r.status_code == 400
-    assert r.json()[
-               "detail"] == "Expected geometry type 'Polygon', got 'LineString' in feature 0"
+    assert r.json()["detail"] == (
+        "Expected geometry type 'Polygon', got 'LineString' in feature 0"
+    )
 
 
-def test_create_project_working_input(client: TestClient) -> None:
+def test_create_project_working_input(
+        client: TestClient,
+        superuser_token_headers: dict[str, str],
+        db: Session,
+        superuser: User
+) -> None:
     """Test creating a project with full parameters using API endpoint.
 
     With the site and roads being valid geojson.
@@ -99,11 +135,15 @@ def test_create_project_working_input(client: TestClient) -> None:
         "site": site_data,
         "roads": roads_data
     }
-    r = client.post(f"{settings.API_V1_STR}/projects", json=data)
+    r = client.post(
+        f"{settings.API_V1_STR}/projects",
+        json=data,
+        headers=superuser_token_headers,
+    )
     assert r.status_code == 201
 
     uuid = r.json()["uuid"]
-    project = Project(uuid=uuid)
+    project = Project.get(session=db, uuid=uuid, user=superuser)
     assert project.name == "Test Project"
     assert project.description == "Test Project Description"
     assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 20
@@ -118,7 +158,12 @@ def test_create_project_working_input(client: TestClient) -> None:
 
 
 @patch("app.tasks.generate_rue.generate_rue", wraps=generate_rue)
-def test_update_task(mock_generate_rue, client: TestClient) -> None:
+def test_update_task(
+        mock_generate_rue, client: TestClient,
+        superuser_token_headers: dict[str, str],
+        db: Session,
+        superuser: User
+) -> None:
     """Test update_task."""
     assert mock_generate_rue.call_count == 0
 
@@ -131,19 +176,20 @@ def test_update_task(mock_generate_rue, client: TestClient) -> None:
         "description": "Test Project Description",
         "parameters": parameters
     }
-    r = client.post(f"{settings.API_V1_STR}/projects", json=data)
+    r = client.post(
+        f"{settings.API_V1_STR}/projects",
+        json=data,
+        headers=superuser_token_headers,
+    )
     assert r.status_code == 201
 
     uuid = r.json()["uuid"]
-    project = Project(uuid=uuid)
+
+    project = Project.get(session=db, uuid=uuid, user=superuser)
     assert project.name == "Test Project"
     assert project.description == "Test Project Description"
     assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 20
     assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 15
-
-    # Load fixture files
-    fixtures_dir = Path(__file__).parent / "fixtures"
-    update_geojson = fixtures_dir / "parcel.geojson"
 
     step_geojson = {}
     for step in StepType:
@@ -162,7 +208,8 @@ def test_update_task(mock_generate_rue, client: TestClient) -> None:
     target_step = StepType.STREETS
     r = client.put(
         f"{settings.API_V1_STR}/projects/{uuid}/{target_step.value}",
-        json={}
+        json={},
+        headers=superuser_token_headers,
     )
     assert r.status_code == 422
 
@@ -177,11 +224,15 @@ def test_update_task(mock_generate_rue, client: TestClient) -> None:
         else:
             assert geojson_file is None
 
+    # Load fixture files
+    fixtures_dir = Path(__file__).parent / "fixtures"
+    update_geojson = fixtures_dir / "parcel.geojson"
     with open(update_geojson) as f:
         new_geojson = json.load(f)
         r = client.put(
             f"{settings.API_V1_STR}/projects/{uuid}/{target_step.value}",
-            json={"geojson": new_geojson}
+            json={"geojson": new_geojson},
+            headers=superuser_token_headers,
         )
         assert r.status_code == 204
 
@@ -194,7 +245,7 @@ def test_update_task(mock_generate_rue, client: TestClient) -> None:
         )
 
         # New data
-        project = Project(uuid=uuid)
+        project = Project.get(session=db, uuid=uuid, user=superuser)
         for step in StepType:
             geojson_file = project.get_file_path(
                 step, ExtensionType.GEOJSON
