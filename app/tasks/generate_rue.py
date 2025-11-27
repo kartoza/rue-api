@@ -37,11 +37,8 @@ def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
             site_path=str(project.get_path_site()),
             roads_path=str(project.get_path_roads()),
             output_dir=f"{current_step_folder}",
-            rows=3,  # Number of grid rows
-            cols=3,  # Number of grid columns
-            pad_m=50.0,  # Grid padding in meters
-            min_parcel_area_m2=5.0,  # Minimum parcel area
-            subtract_roads=True,  # Whether to carve out road corridors
+            road_arterial_width_m=project.parameters.neighbourhood.public_roads.width_of_arteries_m,
+            road_secondary_width_m=project.parameters.neighbourhood.public_roads.width_of_secondaries_m
         )
         generate_parcels(config)
     # STREETS
