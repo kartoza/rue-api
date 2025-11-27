@@ -33,7 +33,7 @@ from app.models.project import (
     Trees,
     UrbanBlockStructure,
 )
-from app.types import StepType, ExtensionType
+from app.definition import StepType, ExtensionType
 from tests.utils.user import create_random_user
 
 

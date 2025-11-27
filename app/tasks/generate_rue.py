@@ -8,7 +8,7 @@ from rue_lib.streets.runner import StreetConfig, generate_streets
 from app.celery_app import celery
 from app.core.config import settings
 from app.models.project import Project
-from app.types import TaskStatus, StepType, ExtensionType, STEPS
+from app.definition import TaskStatus, StepType, ExtensionType, STEPS
 
 
 def process_folder_name(step_idx: int) -> str:

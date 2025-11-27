@@ -9,7 +9,7 @@ from app.core.config import settings
 from app.models import User
 from app.models.project import ProjectCreate, Project
 from app.tasks.generate_rue import generate_rue
-from app.types import ExtensionType, StepType, STEPS
+from app.definition import ExtensionType, StepType, STEPS
 
 
 def test_create_project_no_login(client: TestClient) -> None:

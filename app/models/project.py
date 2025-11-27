@@ -12,7 +12,7 @@ from app.core.config import settings
 from app.exceptions import ProjectDoesNotExists
 from app.models.project_model import ProjectUser
 from app.models.user import User
-from app.types import StepType, ExtensionType, STEPS
+from app.definition import StepType, ExtensionType, STEPS
 
 
 # Parameter Schemas

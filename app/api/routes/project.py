@@ -18,7 +18,7 @@ from app.models.project import (
     ProjectResponse,
     TaskUpdate
 )
-from app.types import StepType, ExtensionType, STEPS
+from app.definition import StepType, ExtensionType, STEPS
 
 router = APIRouter(tags=["Projects"])
 
