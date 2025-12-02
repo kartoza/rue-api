@@ -1,6 +1,7 @@
 """Project and Task API routes for urban planning GIS platform."""
 
 import json
+import shutil
 import uuid as uuid_pkg
 from pathlib import Path
 from uuid import UUID
@@ -46,7 +47,8 @@ def get_projects(
     ]
 
 
-@router.post("/projects", response_model=ProjectDetailResponse, status_code=201)
+@router.post("/projects", response_model=ProjectDetailResponse,
+             status_code=201)
 def create_project(
         *,
         session: SessionDep,
@@ -119,6 +121,37 @@ def put_project_detail(
     return update_project(
         project=project, project_in=project_in, session=session
     )
+
+
+@router.delete(
+    "/projects/{uuid}",
+    status_code=204,
+    responses={
+        404: ProjectDoesNotExists.response_schema,
+    },
+)
+def delete_project(
+        *,
+        session: SessionDep,
+        current_user: CurrentUser,
+        uuid: UUID,
+        request: Request
+) -> None:
+    """Delete project and its associated folder."""
+
+    try:
+        project = Project.get(session=session, user=current_user, uuid=uuid)
+    except ProjectDoesNotExists as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    # Delete the project from the database
+    session.delete(project.project_user)
+    session.commit()
+
+    # Delete the project folder from disk
+    if project.folder.exists():
+        shutil.rmtree(project.folder)
+    return None
 
 
 @router.get(

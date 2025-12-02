@@ -3,11 +3,13 @@ from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
 from app.definition import ExtensionType, StepType, STEPS
+from app.exceptions import ProjectDoesNotExists
 from app.models import User
 from app.models.project import ProjectCreate, Project
 from app.tasks.generate_rue import generate_rue
@@ -316,6 +318,24 @@ def test_create_project_working_input(
         )
         with open(path) as f:
             assert json.loads(f.read())["run_at"] != task_uuids[step]
+    # ----------------------------------------------------
+    # DELETE PROJECT
+    # ----------------------------------------------------
+    folder_path = project.folder
+    assert folder_path.exists() is True
+
+    r = client.delete(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 204
+
+    # Verify project no longer exists in database
+    with pytest.raises(ProjectDoesNotExists):
+        Project.get(session=db, uuid=uuid, user=superuser)
+
+    # Verify folder has been deleted
+    assert folder_path.exists() is False
 
 
 @patch("app.tasks.generate_rue.generate_rue", wraps=generate_rue)
