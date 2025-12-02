@@ -1,7 +1,7 @@
 """Project and Task models for urban planning GIS platform."""
 
 import json
-from enum import Enum
+import shutil
 from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
@@ -9,66 +9,10 @@ from uuid import UUID
 from sqlmodel import Field, SQLModel
 
 from app.core.config import settings
-
-
-class TaskStatus(str, Enum):
-    """Task status enumeration."""
-
-    PENDING = "pending"
-    RUNNING = "running"
-    SUCCESS = "success"
-    FAILED = "failed"
-
-
-class ComponentType(str, Enum):
-    """Component type enumeration."""
-
-    SITE = "site"
-    STREETS = "streets"
-    CLUSTERS = "clusters"
-    PUBLIC = "public"
-    SUBDIVISION = "subdivision"
-    FOOTPRINT = "footprint"
-    BUILDING_START = "building_start"
-    BUILDING_MAX = "building_max"
-
-
-class ExtensionType(str, Enum):
-    """Extension type enumeration."""
-
-    GEOJSON = "geojson"
-    GLTF = "gltf"
-    JSON = "json"
-
-
-STEPS = [
-    ComponentType.SITE.value,
-    ComponentType.STREETS.value,
-    ComponentType.CLUSTERS.value,
-    ComponentType.PUBLIC.value,
-    ComponentType.SUBDIVISION.value,
-    ComponentType.FOOTPRINT.value,
-    ComponentType.BUILDING_START.value,
-    ComponentType.BUILDING_MAX.value
-]
-
-
-class ProjectDoesNotExists(Exception):
-    """Project does not exist."""
-
-    response_schema = {
-        "description": "Project not found",
-        "content": {
-            "application/json": {
-                "example": {"detail": "Project does not exist"}
-            }
-        },
-    }
-
-    def __init__(self, message):
-        """Initialize the exception."""
-        self.message = message
-        super().__init__(self.message)
+from app.definition import StepType, ExtensionType, STEPS
+from app.exceptions import ProjectDoesNotExists
+from app.models.project_model import ProjectUser
+from app.models.user import User
 
 
 # Parameter Schemas
@@ -419,15 +363,31 @@ class ProjectCreate(SQLModel):
     )
 
 
+class TaskUpdate(SQLModel):
+    """Schema for task update request."""
+    geojson: dict[str, Any] = Field(
+        description="GeoJSON for the updates."
+    )
+
+
 class ProjectResponse(SQLModel):
     """Schema for project creation response."""
 
     uuid: UUID
     name: str
-    file: str
 
 
-class TaskCreateResponse(SQLModel):
+class ProjectDetailResponse(SQLModel):
+    """Schema for project detail response."""
+
+    uuid: UUID
+    name: str
+    description: Optional[str] = None
+    parameters: ProjectParameters
+    project_metadata: Optional[dict[str, Any]]
+
+
+class TaskResponse(SQLModel):
     """Schema for task creation response."""
 
     task_id: UUID
@@ -439,60 +399,99 @@ class ComponentResponse(SQLModel):
     """Schema for component GET response."""
 
     file: str
-    task: TaskCreateResponse
+    task: TaskResponse
     result: Optional[dict[str, Any]] = None
 
 
-# Database Models
+# ----------------------------------
+# Project class
+# ----------------------------------
 class Project:
-    """Project model."""
+    """Project class.
+
+    It will fetch the data from the project folder and store it in the class.
+    """
 
     uuid: UUID
     name: str
     description: Optional[str] = None
     parameters: ProjectParameters = None
     project_metadata: dict[str, Any] = {}
+    folder: Path
+
+    project_user: Optional[ProjectUser] = None
 
     @staticmethod
-    def create(uuid):
+    def create(
+            session, user: User, name: str, description: Optional[str] = None
+    ):
         """Create a new project."""
-        folder = settings.PROJECT_FILE_DIR / str(uuid)
-        folder.mkdir(parents=True, exist_ok=True)
+        project_user = ProjectUser(
+            user_id=user.id,
+            name=name,
+            description=description
+        )
+        session.add(project_user)
+        session.commit()
+        session.refresh(project_user)
 
-    def __init__(self, uuid):
+        # Return project class
+        return project_user.project
+
+    @staticmethod
+    def get(session, uuid: UUID | str, user: User):
+        """Get an existing project by UUID.
+
+        Args:
+            session: Database session
+            uuid: Project UUID (can be string or UUID object)
+            user: Optional user to verify ownership
+
+        Returns:
+            Project instance or None if not found
+        """
+        from sqlmodel import select
+        import uuid as uuid_pkg
+
+        # Convert string to UUID if needed
+        if isinstance(uuid, str):
+            uuid = uuid_pkg.UUID(uuid)
+
+        query = select(ProjectUser).where(ProjectUser.uuid == uuid).where(
+            ProjectUser.user_id == user.id
+        )
+        project_user = session.exec(query).first()
+        if not project_user:
+            raise ProjectDoesNotExists("Project not found")
+
+        # Return project class
+        return project_user.project
+
+    def __init__(self, uuid: UUID | str):
         """Initialize the project model."""
+        import uuid as uuid_pkg
+
+        # Convert string to UUID if needed
+        if isinstance(uuid, str):
+            uuid = uuid_pkg.UUID(uuid)
+
         self.uuid = uuid
-        self.folder = settings.PROJECT_FILE_DIR / str(uuid)
-        if Path.exists(self.folder):
-            if Path.exists(self.file_path_name):
-                self.name = self.file_path_name.read_text()
-            if Path.exists(self.file_path_description):
-                self.description = self.file_path_description.read_text()
-            if Path.exists(self.file_path_parameters):
-                params_json = json.loads(
-                    self.file_path_parameters.read_text()
-                )
-                self.parameters = ProjectParameters(**params_json)
-            if Path.exists(self.file_path_metadata):
-                self.project_metadata = json.loads(
-                    self.file_path_metadata.read_text()
-                )
-        else:
-            raise ProjectDoesNotExists("Project does not exist")
+        folder = settings.PROJECT_FILE_DIR / str(self.uuid)
+        folder.mkdir(parents=True, exist_ok=True)
+        self.folder = folder
+        if Path.exists(self.file_path_parameters):
+            params_json = json.loads(
+                self.file_path_parameters.read_text()
+            )
+            self.parameters = ProjectParameters(**params_json)
+        if Path.exists(self.file_path_metadata):
+            self.project_metadata = json.loads(
+                self.file_path_metadata.read_text()
+            )
 
-    def insert_parameters(self, parameters: dict[str, Any]):
+    def insert_parameters(self, parameters: ProjectParameters):
         """Return name"""
-        self.parameters = ProjectParameters(**parameters)
-
-    @property
-    def file_path_name(self) -> Path:
-        """Return name"""
-        return self.folder / "name"
-
-    @property
-    def file_path_description(self) -> Path:
-        """Return description"""
-        return self.folder / "description"
+        self.parameters = parameters
 
     @property
     def file_path_parameters(self) -> Path:
@@ -504,31 +503,12 @@ class Project:
         """Return metadata.json"""
         return self.folder / "metadata.json"
 
-    def save_to_file(self):
-        """Save the project to a file."""
-        # Save data to files
-        self.file_path_name.write_text(self.name)
-        self.file_path_description.write_text(self.description or "")
-        if self.parameters:
-            self.file_path_parameters.write_text(
-                json.dumps(self.parameters.model_dump(), indent=2))
-        self.file_path_metadata.write_text(
-            json.dumps(self.project_metadata or {}, indent=2))
-
-    def generate(self):
-        """Generate the project."""
-        from app.tasks.generate_rue import generate_rue
-        if settings.ASYNC_SIGNALS:
-            generate_rue.delay(str(self.uuid), 0)
-        else:
-            generate_rue(str(self.uuid), 0)
-
     def get_step_folder(self, step_idx):
         """Return the folder for the current step."""
         return self.folder / f"{step_idx:02}-{STEPS[step_idx]}"
 
     def get_file_path(
-            self, step: ComponentType,
+            self, step: StepType,
             extension: ExtensionType,
             filename: str = None
     ):
@@ -566,10 +546,14 @@ class Project:
 
     def save_roads(self, roads):
         """Save the roads to a file."""
+        folder_input = self.folder / "input"
+        folder_input.mkdir(parents=True, exist_ok=True)
         self.file_path_roads.write_text(json.dumps(roads))
 
     def save_site(self, site):
         """Save the site to a file."""
+        folder_input = self.folder / "input"
+        folder_input.mkdir(parents=True, exist_ok=True)
         self.file_path_site.write_text(json.dumps(site))
 
     def get_path_roads(self) -> Path:
@@ -577,11 +561,49 @@ class Project:
         if Path.exists(self.file_path_roads):
             return self.file_path_roads
         base_dir = Path(__file__).parent.parent
-        return base_dir / "data" / "roads.geojson"
+        return base_dir / "example_data" / "roads.geojson"
 
     def get_path_site(self) -> Path:
         """Return path site"""
         if Path.exists(self.file_path_site):
             return self.file_path_site
         base_dir = Path(__file__).parent.parent
-        return base_dir / "data" / "site.geojson"
+        return base_dir / "example_data" / "site.geojson"
+
+    def remove_step_after(self, step: StepType):
+        """Remove step after the current step."""
+        step_idx = STEPS.index(step.value)
+        for idx in range(step_idx + 1, len(STEPS)):
+            folder_to_remove = self.get_step_folder(idx)
+            if folder_to_remove.exists():
+                shutil.rmtree(folder_to_remove)
+
+    def reset_step(self):
+        """Remove all step."""
+        for idx, step in enumerate(STEPS):
+            folder_to_remove = self.get_step_folder(idx)
+            if folder_to_remove.exists():
+                shutil.rmtree(folder_to_remove)
+
+    def update(self, session):
+        """Update project."""
+        if self.parameters:
+            self.file_path_parameters.write_text(
+                json.dumps(self.parameters.model_dump(), indent=2))
+        self.file_path_metadata.write_text(
+            json.dumps(self.project_metadata or {}, indent=2))
+
+        # Save to database
+        self.project_user.name = self.name
+        self.project_user.description = self.description
+        session.add(self.project_user)
+        session.commit()
+        session.refresh(self.project_user)
+
+    def generate(self, step_idx: int = 0, max_steps_idx: int = None):
+        """Generate the project."""
+        from app.tasks.generate_rue import generate_rue
+        if settings.ASYNC_SIGNALS:
+            generate_rue.delay(str(self.uuid), step_idx)
+        else:
+            generate_rue(str(self.uuid), step_idx)

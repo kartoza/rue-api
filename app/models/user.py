@@ -1,7 +1,11 @@
 import uuid
+from typing import TYPE_CHECKING
 
 from pydantic import EmailStr
-from sqlmodel import Field, SQLModel
+from sqlmodel import Field, Relationship, SQLModel
+
+if TYPE_CHECKING:
+    from app.models.project_model import ProjectUser
 
 
 # Shared properties
@@ -43,6 +47,8 @@ class UpdatePassword(SQLModel):
 class User(UserBase, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     hashed_password: str
+
+    projects: list["ProjectUser"] = Relationship(back_populates="user")
 
 
 # Properties to return via API, id is always required

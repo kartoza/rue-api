@@ -13,7 +13,7 @@ jobs:
       matrix:
         python-version: ['3.11', '3.12', '3.13']
     env:
-      ENVIRONMENT: local
+      ENVIRONMENT: test
       DB_SCHEME: sqlite
       SQLITE_DB_PATH: rue.db
       PROJECT_NAME: RUE API
@@ -21,6 +21,7 @@ jobs:
       FIRST_SUPERUSER_PASSWORD: changethis
       SECRET_KEY: changethis
       UV_VENV: .venv
+      ASYNC_SIGNALS: False
     steps:
       - name: Checkout
         uses: actions/checkout@v4
