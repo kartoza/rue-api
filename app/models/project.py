@@ -578,6 +578,13 @@ class Project:
             if folder_to_remove.exists():
                 shutil.rmtree(folder_to_remove)
 
+    def reset_step(self):
+        """Remove all step."""
+        for idx, step in enumerate(STEPS):
+            folder_to_remove = self.get_step_folder(idx)
+            if folder_to_remove.exists():
+                shutil.rmtree(folder_to_remove)
+
     def update(self, session):
         """Update project."""
         if self.parameters:

@@ -1,4 +1,5 @@
 import json
+from copy import deepcopy
 from pathlib import Path
 from unittest.mock import patch
 
@@ -164,6 +165,7 @@ def test_create_project_working_input(
     assert r.status_code == 201
 
     uuid = r.json()["uuid"]
+    assert r.json()["parameters"] is not None
     project = Project.get(session=db, uuid=uuid, user=superuser)
     assert project.name == "Test Project"
     assert project.description == "Test Project Description"
@@ -176,6 +178,144 @@ def test_create_project_working_input(
         assert site_data == json.load(f)
     with open(project.get_path_roads()) as f:
         assert roads_data == json.load(f)
+
+    # Check task uuids
+    task_uuids = {}
+    for step in StepType:
+        path = project.get_file_path(
+            step, ExtensionType.JSON, filename="task.json"
+        )
+        with open(path) as f:
+            task_uuids[step] = json.loads(f.read())["run_at"]
+
+    # ----------------------------------------------------
+    # UPDATE TEST ERROR
+    # ----------------------------------------------------
+    # Load fixture files
+    fixtures_dir = Path(__file__).parent / "fixtures"
+    site_path = fixtures_dir / "site.geojson"
+    roads_path = fixtures_dir / "roads.geojson"
+
+    with open(site_path) as f:
+        site_data = json.load(f)
+
+    with open(roads_path) as f:
+        roads_data = json.load(f)
+
+    parameters = deepcopy(
+        ProjectCreate.model_config["json_schema_extra"]["examples"][0][
+            "parameters"]
+    )
+    data = {
+        "name": "Test Project",
+        "description": "Test Project Description",
+        "parameters": parameters,
+        "site": roads_data,
+        "roads": site_data
+    }
+    r = client.put(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        json=data,
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 400
+    assert r.json()["detail"] == (
+        "Expected geometry type 'Polygon', got 'LineString' in feature 0"
+    )
+
+    # ----------------------------------------------------
+    # UPDATE TEST WORKS
+    # ----------------------------------------------------
+    with open(site_path) as f:
+        site_data = json.load(f)
+
+    with open(roads_path) as f:
+        roads_data = json.load(f)
+
+    parameters["neighbourhood"]["public_roads"]["width_of_arteries_m"] = 10
+    parameters["neighbourhood"]["public_roads"]["width_of_secondaries_m"] = 5
+
+    data = {
+        "name": "Test Project",
+        "description": "Test Project Description",
+        "parameters": parameters
+    }
+    r = client.put(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        json=data,
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    project = Project.get(session=db, uuid=uuid, user=superuser)
+    assert project.name == "Test Project"
+    assert project.description == "Test Project Description"
+    assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 10
+    assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 5
+
+    assert project.get_path_roads() == project.folder / "input" / "roads.geojson"
+    assert project.get_path_site() == project.folder / "input" / "site.geojson"
+    with open(project.get_path_site()) as f:
+        assert site_data == json.load(f)
+    with open(project.get_path_roads()) as f:
+        assert roads_data == json.load(f)
+
+    # Check all steps being rerun
+    for step in StepType:
+        path = project.get_file_path(
+            step, ExtensionType.JSON, filename="task.json"
+        )
+        with open(path) as f:
+            assert json.loads(f.read())["run_at"] != task_uuids[step]
+
+    # ----------------------------------------------------
+    # UPDATE TEST WORKS WITH GEOJSON
+    # ----------------------------------------------------
+    # Load fixture files
+    fixtures_dir = Path(__file__).parent / "fixtures"
+    site_path = fixtures_dir / "site_new.geojson"
+    roads_path = fixtures_dir / "roads_new.geojson"
+    with open(site_path) as f:
+        new_site_data = json.load(f)
+
+    with open(roads_path) as f:
+        new_roads_data = json.load(f)
+
+    parameters["neighbourhood"]["public_roads"]["width_of_arteries_m"] = 10
+    parameters["neighbourhood"]["public_roads"]["width_of_secondaries_m"] = 5
+
+    data = {
+        "name": "Test Project",
+        "description": "Test Project Description",
+        "parameters": parameters,
+        "site": new_site_data,
+        "roads": new_roads_data
+    }
+    r = client.put(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        json=data,
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    project = Project.get(session=db, uuid=uuid, user=superuser)
+    assert project.name == "Test Project"
+    assert project.description == "Test Project Description"
+    assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 10
+    assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 5
+
+    assert project.get_path_roads() == project.folder / "input" / "roads.geojson"
+    assert project.get_path_site() == project.folder / "input" / "site.geojson"
+    with open(project.get_path_site()) as f:
+        assert new_site_data == json.load(f)
+    with open(project.get_path_roads()) as f:
+        assert new_roads_data == json.load(f)
+
+    # Check all steps being rerun
+    for step in StepType:
+        path = project.get_file_path(
+            step, ExtensionType.JSON, filename="task.json"
+        )
+        with open(path) as f:
+            assert json.loads(f.read())["run_at"] != task_uuids[step]
 
 
 @patch("app.tasks.generate_rue.generate_rue", wraps=generate_rue)

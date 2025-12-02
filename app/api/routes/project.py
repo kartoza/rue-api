@@ -3,13 +3,13 @@
 import json
 import uuid as uuid_pkg
 from pathlib import Path
-from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from app.api.deps import CurrentUser, SessionDep
+from app.api.utils import (validate_geojson_feature_collection, update_project)
 from app.definition import StepType, ExtensionType, STEPS
 from app.exceptions import ProjectDoesNotExists
 from app.models.project import (
@@ -22,59 +22,6 @@ from app.models.project import (
 )
 
 router = APIRouter(tags=["Projects"])
-
-
-def validate_geojson_feature_collection(
-        data: dict[str, Any],
-        geometry_type: str = None
-) -> None:
-    """Validate GeoJSON FeatureCollection structure."""
-    if not isinstance(data, dict):
-        raise HTTPException(
-            status_code=400,
-            detail=f"Expected GeoJSON FeatureCollection, got {type(data)}"
-        )
-
-    if data.get("type") != "FeatureCollection":
-        raise HTTPException(
-            status_code=400,
-            detail=(
-                f"Expected type 'FeatureCollection', "
-                f"got '{data.get('type')}'"
-            )
-        )
-
-    features = data.get("features", [])
-    if not isinstance(features, list):
-        raise HTTPException(status_code=400, detail="Features must be a list")
-
-    if not features:
-        raise HTTPException(
-            status_code=400,
-            detail=f"At least one {geometry_type} feature is required"
-        )
-
-    for idx, feature in enumerate(features):
-        if not isinstance(feature, dict):
-            raise HTTPException(
-                status_code=400, detail=f"Feature {idx} must be an object"
-            )
-
-        geometry = feature.get("geometry")
-        if not geometry:
-            raise HTTPException(
-                status_code=400, detail=f"Feature {idx} missing geometry"
-            )
-
-        geom_type = geometry.get("type")
-        if geometry_type and geom_type != geometry_type:
-            raise HTTPException(
-                status_code=400,
-                detail=(
-                    f"Expected geometry type '{geometry_type}', "
-                    f"got '{geom_type}' in feature {idx}"
-                ),
-            )
 
 
 @router.get("/projects", response_model=list[ProjectResponse], status_code=200)
@@ -99,14 +46,14 @@ def get_projects(
     ]
 
 
-@router.post("/projects", response_model=ProjectResponse, status_code=201)
+@router.post("/projects", response_model=ProjectDetailResponse, status_code=201)
 def create_project(
         *,
         session: SessionDep,
         current_user: CurrentUser,
         project_in: ProjectCreate,
         request: Request
-) -> ProjectResponse:
+) -> ProjectDetailResponse:
     """Create a new project with GeoJSON validation."""
     # Create database record
     project = Project.create(
@@ -115,24 +62,8 @@ def create_project(
         name=project_in.name,
         description=project_in.description or "",
     )
-
-    if project_in.site is not None:
-        validate_geojson_feature_collection(project_in.site, "Polygon")
-        project.save_site(project_in.site)
-
-    if project_in.roads is not None:
-        validate_geojson_feature_collection(project_in.roads, "LineString")
-        project.save_roads(project_in.roads)
-
-    project.project_metadata = project_in.project_metadata or {}
-    project.insert_parameters(project_in.parameters)
-    project.update(session=session)
-
-    # Run task
-    project.generate()
-    return ProjectResponse(
-        uuid=project.uuid,
-        name=project_in.name
+    return update_project(
+        project=project, project_in=project_in, session=session
     )
 
 
@@ -164,8 +95,34 @@ def get_project_detail(
     )
 
 
+@router.put(
+    "/projects/{uuid}",
+    status_code=200,
+    responses={
+        404: ProjectDoesNotExists.response_schema,
+    },
+)
+def put_project_detail(
+        *,
+        session: SessionDep,
+        current_user: CurrentUser,
+        project_in: ProjectCreate,
+        uuid: UUID,
+        request: Request
+) -> ProjectDetailResponse:
+    """Return project details."""
+    try:
+        project = Project.get(session=session, user=current_user, uuid=uuid)
+    except ProjectDoesNotExists as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return update_project(
+        project=project, project_in=project_in, session=session
+    )
+
+
 @router.get(
-    "/projects/{uuid}/roads.geojson",
+    "/projects/{uuid}/roads_input.geojson",
     status_code=200,
     responses={
         404: ProjectDoesNotExists.response_schema,
@@ -184,6 +141,39 @@ def get_roads_file(
         raise HTTPException(status_code=404, detail=str(e))
     filename = f"roads.geojson"
     file_path = project.get_path_roads()
+    if not file_path.exists():
+        raise HTTPException(
+            status_code=404,
+            detail=f"File '{filename}' not found."
+        )
+
+    return FileResponse(
+        path=file_path,
+        media_type="application/geo+json",
+        filename=filename,
+    )
+
+
+@router.get(
+    "/projects/{uuid}/site_input.geojson",
+    status_code=200,
+    responses={
+        404: ProjectDoesNotExists.response_schema,
+    },
+)
+def get_roads_file(
+        *,
+        session: SessionDep,
+        current_user: CurrentUser,
+        uuid: UUID
+) -> FileResponse:
+    """Trigger a single step of a project generation task."""
+    try:
+        project = Project.get(session=session, user=current_user, uuid=uuid)
+    except ProjectDoesNotExists as e:
+        raise HTTPException(status_code=404, detail=str(e))
+    filename = f"site.geojson"
+    file_path = project.get_path_site()
     if not file_path.exists():
         raise HTTPException(
             status_code=404,

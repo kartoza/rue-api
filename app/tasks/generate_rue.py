@@ -1,5 +1,6 @@
 import json
 import shutil
+from datetime import datetime
 from pathlib import Path
 
 from rue_lib.site.runner import SiteConfig, generate_parcels
@@ -70,6 +71,7 @@ def generate_rue(
 ) -> None:
     """Generate RUE data for a project."""
     project = Project(uuid=uuid)
+    run_at = datetime.timestamp(datetime.now())
 
     folder = project.folder
     task_id = self.request.id
@@ -100,7 +102,8 @@ def generate_rue(
             {
                 "task_id": task_id,
                 "status": TaskStatus.PENDING,
-                "message": ""
+                "message": "",
+                "run_at": run_at
             })
     )
 
@@ -123,6 +126,7 @@ def generate_rue(
                     "task_id": task_id,
                     "status": TaskStatus.SUCCESS,
                     "message": f"STEP {current_step_folder_name}",
+                    "run_at": run_at
                 },
                 indent=2
             )
@@ -143,6 +147,7 @@ def generate_rue(
                     "task_id": task_id,
                     "status": TaskStatus.FAILED,
                     "message": f"{e}",
+                    "run_at": run_at
                 },
                 indent=2
             )
