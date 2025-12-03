@@ -60,7 +60,11 @@ def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
             on_grid_partition_depth_secondary_roads=(
                 project.parameters.neighbourhood.
                 on_grid_partitions.depth_along_secondaries_m
-            )
+            ),
+            off_grid_partitions_preferred_depth=project.parameters.neighbourhood.off_grid_partitions.cluster_depth_m,
+            off_grid_partitions_preferred_width=project.parameters.neighbourhood.off_grid_partitions.cluster_width_m,
+            road_arterial_width_m=project.parameters.neighbourhood.public_roads.width_of_arteries_m,
+            road_secondary_width_m=project.parameters.neighbourhood.public_roads.width_of_secondaries_m
         )
         generate_streets(config)
 
