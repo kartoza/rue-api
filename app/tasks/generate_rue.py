@@ -53,6 +53,11 @@ def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
             parcel_path=str(filepath),
             roads_path=str(project.get_path_roads()),
             output_dir=f"{current_step_folder}",
+            road_arterial_width_m=project.parameters.neighbourhood.public_roads.width_of_arteries_m,
+            road_secondary_width_m=project.parameters.neighbourhood.public_roads.width_of_secondaries_m,
+            road_locals_width_m=project.parameters.neighbourhood.public_roads.width_of_locals_m,
+            sidewalk_width_m=project.parameters.neighbourhood.public_spaces.street_section.sidewalk_width_m,
+
             on_grid_partition_depth_arterial_roads=(
                 project.parameters.neighbourhood.
                 on_grid_partitions.depth_along_arteries_m
@@ -63,8 +68,10 @@ def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
             ),
             off_grid_partitions_preferred_depth=project.parameters.neighbourhood.off_grid_partitions.cluster_depth_m,
             off_grid_partitions_preferred_width=project.parameters.neighbourhood.off_grid_partitions.cluster_width_m,
-            road_arterial_width_m=project.parameters.neighbourhood.public_roads.width_of_arteries_m,
-            road_secondary_width_m=project.parameters.neighbourhood.public_roads.width_of_secondaries_m
+
+            part_art_d=project.parameters.neighbourhood.on_grid_partitions.depth_along_arteries_m,
+            part_sec_d=project.parameters.neighbourhood.on_grid_partitions.depth_along_secondaries_m,
+            part_loc_d=project.parameters.neighbourhood.on_grid_partitions.depth_along_locals_m,
         )
         generate_streets(config)
 
