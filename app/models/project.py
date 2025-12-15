@@ -170,6 +170,29 @@ class ProjectParameters(SQLModel):
 
 
 # Pydantic Schemas for API
+class ProjectPatch(SQLModel):
+    """Schema for patch a project."""
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "name": "Test Project",
+                    "description": "Urban planning project example",
+                    "metadata": {"example-metadata": True},
+                }
+            ]
+        }
+    }
+
+    name: str
+    description: Optional[str] = None
+    project_metadata: Optional[dict[str, Any]] = Field(
+        default=None, alias="metadata"
+    )
+
+
+# Pydantic Schemas for API
 class ProjectCreate(SQLModel):
     """Schema for creating a project."""
 
@@ -369,27 +392,6 @@ class TaskUpdate(SQLModel):
     geojson: dict[str, Any] = Field(
         description="GeoJSON for the updates."
     )
-
-
-class ProjectResponse(SQLModel):
-    """Schema for project creation response."""
-
-    uuid: UUID
-    name: str
-    created_at: datetime
-    updated_at: datetime
-
-
-class ProjectDetailResponse(SQLModel):
-    """Schema for project detail response."""
-
-    uuid: UUID
-    name: str
-    created_at: datetime
-    updated_at: datetime
-    description: Optional[str] = None
-    parameters: ProjectParameters
-    project_metadata: Optional[dict[str, Any]]
 
 
 class TaskResponse(SQLModel):
@@ -615,3 +617,41 @@ class Project:
             generate_rue.delay(str(self.uuid), step_idx)
         else:
             generate_rue(str(self.uuid), step_idx)
+
+
+# -----------------------------------------------------
+# RESPONSES
+# -----------------------------------------------------
+
+class ProjectDetailResponse(SQLModel):
+    """Schema for project detail response."""
+
+    uuid: UUID
+    name: str
+    created_at: datetime
+    updated_at: datetime
+    description: Optional[str] = None
+    parameters: ProjectParameters
+    project_metadata: Optional[dict[str, Any]]
+
+    @staticmethod
+    def create(project: Project):
+        """Create response."""
+        return ProjectDetailResponse(
+            uuid=project.uuid,
+            name=project.name,
+            description=project.description,
+            parameters=project.parameters,
+            project_metadata=project.project_metadata,
+            created_at=project.created_at,
+            updated_at=project.updated_at
+        )
+
+
+class ProjectResponse(SQLModel):
+    """Schema for project creation response."""
+
+    uuid: UUID
+    name: str
+    created_at: datetime
+    updated_at: datetime

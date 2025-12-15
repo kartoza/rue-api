@@ -19,7 +19,7 @@ from app.models.project import (
     ProjectCreate,
     ProjectResponse,
     ProjectDetailResponse,
-    TaskUpdate,
+    TaskUpdate, ProjectPatch,
 )
 
 router = APIRouter(tags=["Projects"])
@@ -91,15 +91,7 @@ def get_project_detail(
     except ProjectDoesNotExists as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-    return ProjectDetailResponse(
-        uuid=project.uuid,
-        name=project.name,
-        description=project.description,
-        parameters=project.parameters,
-        project_metadata=project.project_metadata,
-        created_at=project.created_at,
-        updated_at=project.updated_at
-    )
+    return ProjectDetailResponse.create(project)
 
 
 @router.put(
@@ -126,6 +118,35 @@ def put_project_detail(
     return update_project(
         project=project, project_in=project_in, session=session
     )
+
+
+@router.patch(
+    "/projects/{uuid}",
+    status_code=200,
+    responses={
+        404: ProjectDoesNotExists.response_schema,
+    },
+)
+def patch_project_detail(
+        *,
+        session: SessionDep,
+        current_user: CurrentUser,
+        project_in: ProjectPatch,
+        uuid: UUID,
+        request: Request
+) -> ProjectDetailResponse:
+    """Return project details."""
+    try:
+        project = Project.get(session=session, user=current_user, uuid=uuid)
+    except ProjectDoesNotExists as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    if project_in.project_metadata:
+        project.project_metadata = project_in.project_metadata
+    project.name = project_in.name
+    project.description = project_in.description
+    project.update(session=session)
+    return ProjectDetailResponse.create(project)
 
 
 @router.delete(

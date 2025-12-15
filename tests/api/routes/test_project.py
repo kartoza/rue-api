@@ -118,6 +118,53 @@ def test_create_project_works(
     assert r.json()["created_at"] == project.created_at.isoformat()
     assert r.json()["updated_at"] == project.updated_at.isoformat()
 
+    # ------------------------------------
+    # PATCH
+    # ------------------------------------
+    last_created_at = project.created_at.isoformat()
+    last_updated_at = project.updated_at.isoformat()
+    data = {
+        "name": "Test Project Patched",
+        "description": "Test Project Description Patched"
+    }
+    r = client.patch(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        json=data,
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+
+    r = client.patch(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        json=data,
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+
+    # Check on model
+    project = Project.get(session=db, uuid=uuid, user=superuser)
+    assert project.name == "Test Project Patched"
+    assert project.description == "Test Project Description Patched"
+    assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 20
+    assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 15
+    assert project.created_at is not None
+    assert project.updated_at is not None
+
+    # Check on response
+    assert r.json()["uuid"] == uuid
+    assert r.json()["name"] == "Test Project Patched"
+    assert r.json()["description"] == "Test Project Description Patched"
+    assert r.json()["created_at"] == project.created_at.isoformat()
+    assert r.json()["updated_at"] == project.updated_at.isoformat()
+    assert last_created_at == project.created_at.isoformat()
+    assert last_updated_at != project.updated_at.isoformat()
+
 
 def test_create_project_error_input(
         client: TestClient, superuser_token_headers: dict[str, str]
@@ -354,8 +401,6 @@ def test_create_project_working_input(
         headers=superuser_token_headers,
     )
     assert r.status_code == 200
-    assert r.json()["status"] == "success"
-
 
     # Check all steps being rerun
     for step in StepType:

@@ -77,12 +77,4 @@ def update_project(
 
     # Run task
     project.generate()
-    return ProjectDetailResponse(
-        uuid=project.uuid,
-        name=project_in.name,
-        description=project.description,
-        parameters=project.parameters,
-        project_metadata=project.project_metadata,
-        created_at=project.created_at,
-        updated_at=project.updated_at
-    )
+    return ProjectDetailResponse.create(project)
