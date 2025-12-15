@@ -31,10 +31,7 @@ class OnGridPartitions(SQLModel):
 
 class OffGridPartitions(SQLModel):
     cluster_depth_m: float
-    cluster_size_lots: int
     cluster_width_m: float
-    lot_depth_along_path_m: float
-    lot_depth_around_yard_m: float
 
 
 class BlockStructureConfig(SQLModel):
@@ -83,7 +80,6 @@ class Neighbourhood(SQLModel):
 
 
 class LotConfig(SQLModel):
-    depth_m: float
     width_m: float
     front_setback_m: float
     side_margins_m: float
@@ -111,7 +107,6 @@ class OffGridClusterType2(SQLModel):
 
 
 class CornerBonus(SQLModel):
-    description: str
     with_artery_percent: float
     with_secondary_percent: float
     with_local_percent: float
