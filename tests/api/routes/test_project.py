@@ -38,6 +38,7 @@ def test_create_project_empty(
 def test_create_project_works(
         client: TestClient,
         superuser_token_headers: dict[str, str],
+        normal_user_token_headers: dict[str, str],
         db: Session,
         superuser: User
 ) -> None:
@@ -65,6 +66,23 @@ def test_create_project_works(
     assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 20
     assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 15
 
+    # ----------------------------------
+    # Test security
+    # ----------------------------------
+    # Test return projects as non login
+    r = client.get(
+        f"{settings.API_V1_STR}/projects"
+    )
+    assert r.status_code == 401
+
+    # Test return projects as other user
+    r = client.get(
+        f"{settings.API_V1_STR}/projects",
+        headers=normal_user_token_headers
+    )
+    assert r.status_code == 200
+    assert len(r.json()) == 0
+
     # Test return projects
     r = client.get(
         f"{settings.API_V1_STR}/projects",
@@ -72,19 +90,27 @@ def test_create_project_works(
     )
     assert r.status_code == 200
     assert len(r.json()) == 1
-    assert r.json()[0] == {
-        "uuid": uuid,
-        "name": "Test Project",
-    }
+    assert r.json()[0]["uuid"] == uuid
+    assert r.json()[0]["name"] == "Test Project"
 
     # Test return project
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}"
+    )
+    assert r.status_code == 401
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        headers=normal_user_token_headers
+    )
+    assert r.status_code == 404
+
     r = client.get(
         f"{settings.API_V1_STR}/projects/{uuid}",
         headers=superuser_token_headers,
     )
     assert r.status_code == 200
-    assert r.json()["name"] == "Test Project"
     assert r.json()["uuid"] == uuid
+    assert r.json()["name"] == "Test Project"
 
 
 def test_create_project_error_input(
@@ -130,6 +156,7 @@ def test_create_project_error_input(
 def test_create_project_working_input(
         client: TestClient,
         superuser_token_headers: dict[str, str],
+        normal_user_token_headers: dict[str, str],
         db: Session,
         superuser: User
 ) -> None:
@@ -218,6 +245,13 @@ def test_create_project_working_input(
     r = client.put(
         f"{settings.API_V1_STR}/projects/{uuid}",
         json=data,
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+
+    r = client.put(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        json=data,
         headers=superuser_token_headers,
     )
     assert r.status_code == 400
@@ -245,6 +279,13 @@ def test_create_project_working_input(
     r = client.put(
         f"{settings.API_V1_STR}/projects/{uuid}",
         json=data,
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+
+    r = client.put(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        json=data,
         headers=superuser_token_headers,
     )
     assert r.status_code == 200
@@ -260,6 +301,46 @@ def test_create_project_working_input(
         assert site_data == json.load(f)
     with open(project.get_path_roads()) as f:
         assert roads_data == json.load(f)
+
+    # Get site from API
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}/site_input.geojson",
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}/site_input.geojson",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    assert site_data == r.json()
+
+    # Get roads from API
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}/roads_input.geojson",
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}/roads_input.geojson",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    assert roads_data == r.json()
+
+    # Get task data
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}/site.json",
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}/site.json",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    assert r.json()["status"] == "success"
+
 
     # Check all steps being rerun
     for step in StepType:
@@ -295,6 +376,12 @@ def test_create_project_working_input(
     r = client.put(
         f"{settings.API_V1_STR}/projects/{uuid}",
         json=data,
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+    r = client.put(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        json=data,
         headers=superuser_token_headers,
     )
     assert r.status_code == 200
@@ -326,6 +413,12 @@ def test_create_project_working_input(
 
     r = client.delete(
         f"{settings.API_V1_STR}/projects/{uuid}",
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+
+    r = client.delete(
+        f"{settings.API_V1_STR}/projects/{uuid}",
         headers=superuser_token_headers,
     )
     assert r.status_code == 204
@@ -342,6 +435,7 @@ def test_create_project_working_input(
 def test_update_task(
         mock_generate_rue, client: TestClient,
         superuser_token_headers: dict[str, str],
+        normal_user_token_headers: dict[str, str],
         db: Session,
         superuser: User
 ) -> None:
@@ -410,6 +504,13 @@ def test_update_task(
     update_geojson = fixtures_dir / "parcel.geojson"
     with open(update_geojson) as f:
         new_geojson = json.load(f)
+        r = client.put(
+            f"{settings.API_V1_STR}/projects/{uuid}/{target_step.value}",
+            json={"geojson": new_geojson},
+            headers=normal_user_token_headers,
+        )
+        assert r.status_code == 404
+
         r = client.put(
             f"{settings.API_V1_STR}/projects/{uuid}/{target_step.value}",
             json={"geojson": new_geojson},

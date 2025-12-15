@@ -3,9 +3,6 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
-from rue_lib.site.runner import SiteConfig, generate_parcels
-from rue_lib.streets.runner import StreetConfig, generate_streets
-
 from app.celery_app import celery
 from app.core.config import settings
 from app.definition import TaskStatus, StepType, ExtensionType, STEPS
@@ -31,6 +28,9 @@ def mock_step(current_step_folder_name: str, current_step_folder: Path):
 
 def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
     """Run RUE lib for a step."""
+    from rue_lib.site.runner import SiteConfig, generate_parcels
+    from rue_lib.streets.runner import StreetConfig, generate_streets
+
     # SITE
     if step_idx == 0:
         # generate parcels

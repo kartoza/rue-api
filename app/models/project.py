@@ -2,6 +2,7 @@
 
 import json
 import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
@@ -375,6 +376,8 @@ class ProjectResponse(SQLModel):
 
     uuid: UUID
     name: str
+    created_at: datetime
+    updated_at: datetime
 
 
 class ProjectDetailResponse(SQLModel):
@@ -400,7 +403,7 @@ class ComponentResponse(SQLModel):
 
     file: str
     task: TaskResponse
-    result: Optional[dict[str, Any]] = None
+    financial: Optional[dict[str, Any]] = None
 
 
 # ----------------------------------
@@ -596,6 +599,7 @@ class Project:
         # Save to database
         self.project_user.name = self.name
         self.project_user.description = self.description
+        self.project_user.updated_at = datetime.now()
         session.add(self.project_user)
         session.commit()
         session.refresh(self.project_user)

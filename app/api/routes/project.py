@@ -41,14 +41,17 @@ def get_projects(
     return [
         ProjectResponse(
             uuid=project.uuid,
-            name=project.name
+            name=project.name,
+            created_at=project.created_at,
+            updated_at=project.updated_at,
         )
         for project in projects
     ]
 
 
-@router.post("/projects", response_model=ProjectDetailResponse,
-             status_code=201)
+@router.post(
+    "/projects", response_model=ProjectDetailResponse, status_code=201
+)
 def create_project(
         *,
         session: SessionDep,
@@ -293,12 +296,19 @@ def get_step_data(
         raise HTTPException(status_code=404, detail="Task does not exist.")
 
     # Results
-    result = {}
-    result_file = project.get_file_path(
-        step, ExtensionType.JSON, filename="result.json"
+    financial = {}
+    financial_file = project.get_file_path(
+        step, ExtensionType.JSON, filename="financial.json"
     )
-    if Path.exists(result_file):
-        result = json.loads(result_file.read_text())
+    if Path.exists(financial_file):
+        financial = json.loads(financial_file.read_text())
+    else:
+        # Old financial location
+        financial_file = project.get_file_path(
+            step, ExtensionType.JSON, filename="result.json"
+        )
+        if Path.exists(financial_file):
+            financial = json.loads(financial_file.read_text())
 
     url = str(
         request.url_for(
@@ -308,7 +318,7 @@ def get_step_data(
             extension=ExtensionType.GLTF.value,
         )
     )
-    return ComponentResponse(file=url, task=task, result=result)
+    return ComponentResponse(file=url, task=task, financial=financial)
 
 
 @router.put(
