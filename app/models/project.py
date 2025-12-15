@@ -35,8 +35,8 @@ class OffGridPartitions(SQLModel):
 
 
 class BlockStructureConfig(SQLModel):
-    off_grid_clusters_in_depth_m: float
-    off_grid_clusters_in_width_m: float
+    off_grid_clusters_in_depth_m: int
+    off_grid_clusters_in_width_m: int
 
 
 class UrbanBlockStructure(SQLModel):

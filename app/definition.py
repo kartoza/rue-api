@@ -41,3 +41,5 @@ STEPS = [
     StepType.BUILDING_START.value,
     StepType.BUILDING_MAX.value
 ]
+
+STEP_INDEX = {step: idx for idx, step in enumerate(STEPS)}
