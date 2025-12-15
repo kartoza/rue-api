@@ -385,6 +385,8 @@ class ProjectDetailResponse(SQLModel):
 
     uuid: UUID
     name: str
+    created_at: datetime
+    updated_at: datetime
     description: Optional[str] = None
     parameters: ProjectParameters
     project_metadata: Optional[dict[str, Any]]
@@ -421,6 +423,8 @@ class Project:
     parameters: ProjectParameters = None
     project_metadata: dict[str, Any] = {}
     folder: Path
+    created_at: datetime
+    updated_at: datetime
 
     project_user: Optional[ProjectUser] = None
 

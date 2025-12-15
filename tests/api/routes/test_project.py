@@ -65,6 +65,8 @@ def test_create_project_works(
     assert project.description == "Test Project Description"
     assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 20
     assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 15
+    assert project.created_at is not None
+    assert project.updated_at is not None
 
     # ----------------------------------
     # Test security
@@ -92,6 +94,8 @@ def test_create_project_works(
     assert len(r.json()) == 1
     assert r.json()[0]["uuid"] == uuid
     assert r.json()[0]["name"] == "Test Project"
+    assert r.json()[0]["created_at"] == project.created_at.isoformat()
+    assert r.json()[0]["updated_at"] == project.updated_at.isoformat()
 
     # Test return project
     r = client.get(
@@ -111,6 +115,8 @@ def test_create_project_works(
     assert r.status_code == 200
     assert r.json()["uuid"] == uuid
     assert r.json()["name"] == "Test Project"
+    assert r.json()["created_at"] == project.created_at.isoformat()
+    assert r.json()["updated_at"] == project.updated_at.isoformat()
 
 
 def test_create_project_error_input(
@@ -217,6 +223,10 @@ def test_create_project_working_input(
         with open(path) as f:
             task_uuids[step] = json.loads(f.read())["run_at"]
 
+    # Check last update
+    assert project.updated_at is not None
+    updated_at = project.updated_at
+
     # ----------------------------------------------------
     # UPDATE TEST ERROR
     # ----------------------------------------------------
@@ -294,6 +304,11 @@ def test_create_project_working_input(
     assert project.description == "Test Project Description"
     assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 10
     assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 5
+
+    # Check last update
+    assert project.updated_at is not None
+    assert project.updated_at != updated_at
+    updated_at = project.updated_at
 
     assert project.get_path_roads() == project.folder / "input" / "roads.geojson"
     assert project.get_path_site() == project.folder / "input" / "site.geojson"
@@ -390,6 +405,11 @@ def test_create_project_working_input(
     assert project.description == "Test Project Description"
     assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 10
     assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 5
+
+    # Check last update
+    assert project.updated_at is not None
+    assert project.updated_at != updated_at
+    updated_at = project.updated_at
 
     assert project.get_path_roads() == project.folder / "input" / "roads.geojson"
     assert project.get_path_site() == project.folder / "input" / "site.geojson"

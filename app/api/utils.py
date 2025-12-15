@@ -83,4 +83,6 @@ def update_project(
         description=project.description,
         parameters=project.parameters,
         project_metadata=project.project_metadata,
+        created_at=project.created_at,
+        updated_at=project.updated_at
     )
