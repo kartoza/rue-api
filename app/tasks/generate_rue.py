@@ -3,6 +3,11 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
+from rue_lib.cluster.runner import ClusterConfig, generate_clusters
+from rue_lib.public.runner import PublicConfig, generate_public
+from rue_lib.site.runner import SiteConfig, generate_parcels
+from rue_lib.streets.runner import StreetConfig, generate_streets
+
 from app.celery_app import celery
 from app.core.config import settings
 from app.definition import (
@@ -33,25 +38,19 @@ def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
 
     # SITE
     if step_idx == STEP_INDEX[StepType.SITE]:
-        from rue_lib.site.runner import SiteConfig, generate_parcels
         # generate parcels
         config = SiteConfig(
             site_path=str(project.get_path_site()),
             roads_path=str(project.get_path_roads()),
             output_dir=f"{current_step_folder}",
             road_arterial_width_m=project.parameters.neighbourhood.public_roads.width_of_arteries_m,
-            road_secondary_width_m=project.parameters.neighbourhood.public_roads.width_of_secondaries_m,
-
-            # TODO:
-            #  It is deprecated
-            geopackage_path=f"{current_step_folder}/output.gpkg",
+            road_secondary_width_m=project.parameters.neighbourhood.public_roads.width_of_secondaries_m
         )
         generate_parcels(config)
     # STREETS
     elif step_idx == STEP_INDEX[StepType.STREETS]:
-        from rue_lib.streets.runner import StreetConfig, generate_streets
         filepath = project.get_file_path(
-            StepType.SITE, ExtensionType.GEOJSON
+            StepType.SITE, f'outputs.{ExtensionType.GEOJSON.value}'
         )
         # generate parcels
         config = StreetConfig(
@@ -99,9 +98,8 @@ def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
         generate_streets(config)
     # CLUSTER
     elif step_idx == STEP_INDEX[StepType.CLUSTERS]:
-        from rue_lib.cluster.runner import ClusterConfig, generate_clusters
         filepath = project.get_file_path(
-            StepType.CLUSTERS, ExtensionType.GEOJSON
+            StepType.STREETS, f'outputs.{ExtensionType.GEOJSON.value}'
         )
         # generate parcels
         config = ClusterConfig(
@@ -138,6 +136,26 @@ def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
             sidewalk_width_m=project.parameters.neighbourhood.public_spaces.street_section.sidewalk_width_m,
         )
         generate_clusters(config)
+    # PUBLIC
+    elif step_idx == STEP_INDEX[StepType.PUBLIC]:
+        site_filepath = project.get_file_path(
+            StepType.SITE, f'outputs.{ExtensionType.GEOJSON.value}'
+        )
+        street_filepath = project.get_file_path(
+            StepType.CLUSTERS, f'outputs.{ExtensionType.GEOJSON.value}'
+        )
+        # generate parcels
+        config = PublicConfig(
+            site_path=site_filepath,
+            input_path=street_filepath,
+            output_dir=f"{current_step_folder}",
+            open_percent=project.parameters.neighbourhood.public_spaces.open_spaces.open_space_percentage,
+            amen_percent=project.parameters.neighbourhood.public_spaces.amenities.amenities_percentage,
+        )
+        generate_public(config)
+
+    else:
+        raise ValueError("Work in progress")
 
 
 @celery.task(bind=True)
@@ -187,17 +205,8 @@ def generate_rue(
         if settings.ENVIRONMENT != "test":
             # Run RUE lib for a step
             run_rue_lib(step_idx, project, current_step_folder)
-
-        # TODO:
-        #  Mock step
-        #  When the rue lib is ready, Remove this mock step
-        if not (settings.ENVIRONMENT != "test" and step_idx in [
-            STEP_INDEX[StepType.SITE],
-            STEP_INDEX[StepType.STREETS],
-            STEP_INDEX[StepType.CLUSTERS],
-        ]):
-            print("---------------------------------------")
-            print(current_step_folder_name)
+        else:
+            # For test, we use mock data
             mock_step(current_step_folder_name, current_step_folder)
 
         # Script finished successfully

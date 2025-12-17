@@ -10,7 +10,7 @@ from uuid import UUID
 from sqlmodel import Field, SQLModel
 
 from app.core.config import settings
-from app.definition import StepType, ExtensionType, STEPS
+from app.definition import StepType, STEPS
 from app.exceptions import ProjectDoesNotExists
 from app.models.project_model import ProjectUser
 from app.models.user import User
@@ -213,10 +213,7 @@ class ProjectCreate(SQLModel):
                             },
                             "off_grid_partitions": {
                                 "cluster_depth_m": 45,
-                                "cluster_size_lots": 15,
-                                "cluster_width_m": 30,
-                                "lot_depth_along_path_m": 12.5,
-                                "lot_depth_around_yard_m": 10,
+                                "cluster_width_m": 30
                             },
                             "urban_block_structure": {
                                 "along_arteries": {
@@ -287,7 +284,6 @@ class ProjectCreate(SQLModel):
                                 "lot_depth_behind_cul_de_sac_m": 15,
                             },
                             "corner_bonus": {
-                                "description": "Density (floor) bonus at intersection",
                                 "with_artery_percent": 40,
                                 "with_secondary_percent": 30,
                                 "with_local_percent": 20,
@@ -511,11 +507,7 @@ class Project:
         """Return the folder for the current step."""
         return self.folder / f"{step_idx:02}-{STEPS[step_idx]}"
 
-    def get_file_path(
-            self, step: StepType,
-            extension: ExtensionType,
-            filename: str = None
-    ):
+    def get_file_path(self, step: StepType, filename: str):
         """Get the project file.
 
         If using filename,
@@ -525,17 +517,9 @@ class Project:
         """
         index = STEPS.index(step.value)
         base_dir = self.get_step_folder(index)
-
-        if filename:
+        if Path.exists(base_dir / f"{filename}"):
             return base_dir / f"{filename}"
-
-        # Find all files with the given extension
-        files = list(base_dir.glob(f"*.{extension.value}"))
-
-        if not files:
-            return None
-
-        return files[0]
+        return None
 
     # For site and roads
     @property

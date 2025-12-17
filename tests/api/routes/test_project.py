@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
-from app.definition import ExtensionType, StepType, STEPS
+from app.definition import StepType, STEPS
 from app.exceptions import ProjectDoesNotExists
 from app.models import User
 from app.models.project import ProjectCreate, Project
@@ -265,7 +265,7 @@ def test_create_project_working_input(
     task_uuids = {}
     for step in StepType:
         path = project.get_file_path(
-            step, ExtensionType.JSON, filename="task.json"
+            step, filename="task.json"
         )
         with open(path) as f:
             task_uuids[step] = json.loads(f.read())["run_at"]
@@ -392,12 +392,12 @@ def test_create_project_working_input(
 
     # Get task data
     r = client.get(
-        f"{settings.API_V1_STR}/projects/{uuid}/site.json",
+        f"{settings.API_V1_STR}/projects/{uuid}/site/file/task.json",
         headers=normal_user_token_headers,
     )
     assert r.status_code == 404
     r = client.get(
-        f"{settings.API_V1_STR}/projects/{uuid}/site.json",
+        f"{settings.API_V1_STR}/projects/{uuid}/site/file/task.json",
         headers=superuser_token_headers,
     )
     assert r.status_code == 200
@@ -405,7 +405,7 @@ def test_create_project_working_input(
     # Check all steps being rerun
     for step in StepType:
         path = project.get_file_path(
-            step, ExtensionType.JSON, filename="task.json"
+            step, filename="task.json"
         )
         with open(path) as f:
             assert json.loads(f.read())["run_at"] != task_uuids[step]
@@ -466,7 +466,7 @@ def test_create_project_working_input(
     # Check all steps being rerun
     for step in StepType:
         path = project.get_file_path(
-            step, ExtensionType.JSON, filename="task.json"
+            step, filename="task.json"
         )
         with open(path) as f:
             assert json.loads(f.read())["run_at"] != task_uuids[step]
@@ -534,7 +534,7 @@ def test_update_task(
     step_geojson = {}
     for step in StepType:
         geojson_file = project.get_file_path(
-            step, ExtensionType.GEOJSON
+            step, "outputs.geojson"
         )
         with open(geojson_file) as f:
             step_geojson[step.value] = json.load(f)
@@ -557,7 +557,7 @@ def test_update_task(
     project.remove_step_after(target_step)
     for step in StepType:
         geojson_file = project.get_file_path(
-            step, ExtensionType.GEOJSON
+            step, "outputs.geojson"
         )
         if step in [StepType.SITE, StepType.STREETS]:
             assert Path(geojson_file).exists() is True
@@ -565,6 +565,8 @@ def test_update_task(
             assert geojson_file is None
 
     # Load fixture files
+    print("---------------------")
+    print(uuid)
     fixtures_dir = Path(__file__).parent / "fixtures"
     update_geojson = fixtures_dir / "parcel.geojson"
     with open(update_geojson) as f:
@@ -595,7 +597,7 @@ def test_update_task(
         project = Project.get(session=db, uuid=uuid, user=superuser)
         for step in StepType:
             geojson_file = project.get_file_path(
-                step, ExtensionType.GEOJSON
+                step, "outputs.geojson"
             )
             with open(geojson_file) as f:
                 geojson = json.load(f)
