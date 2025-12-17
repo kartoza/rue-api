@@ -327,15 +327,8 @@ def get_step_data(
     financial_file = project.get_file_path(
         step, filename="financial.json"
     )
-    if financial and Path.exists(financial_file):
+    if financial_file and Path.exists(financial_file):
         financial = json.loads(financial_file.read_text())
-    else:
-        # Old financial location
-        financial_file = project.get_file_path(
-            step, filename="result.json"
-        )
-        if financial and Path.exists(financial_file):
-            financial = json.loads(financial_file.read_text())
 
     url = str(
         request.url_for(
