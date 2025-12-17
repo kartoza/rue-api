@@ -1,6 +1,7 @@
 """Project and Task API routes for urban planning GIS platform."""
 
 import json
+import os.path
 import shutil
 import uuid as uuid_pkg
 from pathlib import Path
@@ -19,7 +20,7 @@ from app.models.project import (
     ProjectCreate,
     ProjectResponse,
     ProjectDetailResponse,
-    TaskUpdate,
+    TaskUpdate, ProjectPatch,
 )
 
 router = APIRouter(tags=["Projects"])
@@ -41,14 +42,17 @@ def get_projects(
     return [
         ProjectResponse(
             uuid=project.uuid,
-            name=project.name
+            name=project.name,
+            created_at=project.created_at,
+            updated_at=project.updated_at,
         )
         for project in projects
     ]
 
 
-@router.post("/projects", response_model=ProjectDetailResponse,
-             status_code=201)
+@router.post(
+    "/projects", response_model=ProjectDetailResponse, status_code=201
+)
 def create_project(
         *,
         session: SessionDep,
@@ -88,13 +92,7 @@ def get_project_detail(
     except ProjectDoesNotExists as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-    return ProjectDetailResponse(
-        uuid=project.uuid,
-        name=project.name,
-        description=project.description,
-        parameters=project.parameters,
-        project_metadata=project.project_metadata,
-    )
+    return ProjectDetailResponse.create(project)
 
 
 @router.put(
@@ -121,6 +119,35 @@ def put_project_detail(
     return update_project(
         project=project, project_in=project_in, session=session
     )
+
+
+@router.patch(
+    "/projects/{uuid}",
+    status_code=200,
+    responses={
+        404: ProjectDoesNotExists.response_schema,
+    },
+)
+def patch_project_detail(
+        *,
+        session: SessionDep,
+        current_user: CurrentUser,
+        project_in: ProjectPatch,
+        uuid: UUID,
+        request: Request
+) -> ProjectDetailResponse:
+    """Return project details."""
+    try:
+        project = Project.get(session=session, user=current_user, uuid=uuid)
+    except ProjectDoesNotExists as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    if project_in.project_metadata:
+        project.project_metadata = project_in.project_metadata
+    project.name = project_in.name
+    project.description = project_in.description
+    project.update(session=session)
+    return ProjectDetailResponse.create(project)
 
 
 @router.delete(
@@ -167,7 +194,7 @@ def get_roads_file(
         current_user: CurrentUser,
         uuid: UUID
 ) -> FileResponse:
-    """Trigger a single step of a project generation task."""
+    """Return roads input GeoJSON file."""
     try:
         project = Project.get(session=session, user=current_user, uuid=uuid)
     except ProjectDoesNotExists as e:
@@ -200,7 +227,7 @@ def get_roads_file(
         current_user: CurrentUser,
         uuid: UUID
 ) -> FileResponse:
-    """Trigger a single step of a project generation task."""
+    """Return site input GeoJSON file."""
     try:
         project = Project.get(session=session, user=current_user, uuid=uuid)
     except ProjectDoesNotExists as e:
@@ -221,7 +248,7 @@ def get_roads_file(
 
 
 @router.get(
-    "/projects/{uuid}/{step}.{extension}",
+    "/projects/{uuid}/{step}/file/{filename}",
     status_code=200,
     responses={
         404: ProjectDoesNotExists.response_schema,
@@ -233,15 +260,16 @@ def get_project_file(
         current_user: CurrentUser,
         uuid: UUID,
         step: StepType,
-        extension: ExtensionType,
+        filename: str,
 ) -> FileResponse:
-    """Trigger a single step of a project generation task."""
+    """Return project file from step folder."""
     try:
         project = Project.get(session=session, user=current_user, uuid=uuid)
     except ProjectDoesNotExists as e:
         raise HTTPException(status_code=404, detail=str(e))
-    filename = f"{step.value}.{extension.value}"
-    file_path = project.get_file_path(step, extension)
+    file_path = project.get_file_path(step, filename)
+    name, extension = os.path.splitext(filename)
+    extension = extension.replace('.', '')
     if not file_path.exists():
         raise HTTPException(
             status_code=404,
@@ -279,8 +307,10 @@ def get_step_data(
     except ProjectDoesNotExists as e:
         raise HTTPException(status_code=404, detail=str(e))
     data_file = project.get_file_path(
-        step, ExtensionType.JSON, filename="task.json"
+        step, filename="task.json"
     )
+    if not data_file:
+        raise HTTPException(status_code=404, detail=str("Step does not exist."))
 
     if Path.exists(data_file):
         data = json.loads(data_file.read_text())
@@ -293,22 +323,22 @@ def get_step_data(
         raise HTTPException(status_code=404, detail="Task does not exist.")
 
     # Results
-    result = {}
-    result_file = project.get_file_path(
-        step, ExtensionType.JSON, filename="result.json"
+    financial = {}
+    financial_file = project.get_file_path(
+        step, filename="financial.json"
     )
-    if Path.exists(result_file):
-        result = json.loads(result_file.read_text())
+    if financial_file and Path.exists(financial_file):
+        financial = json.loads(financial_file.read_text())
 
     url = str(
         request.url_for(
             "get_project_file",
             uuid=project.uuid,
             step=step.value,
-            extension=ExtensionType.GLTF.value,
+            filename=f"outputs.{ExtensionType.GEOJSON.value}",
         )
     )
-    return ComponentResponse(file=url, task=task, result=result)
+    return ComponentResponse(file=url, task=task, financial=financial)
 
 
 @router.put(
@@ -337,7 +367,7 @@ def put_step_data(
         raise HTTPException(status_code=404, detail=str(e))
 
     data_file = project.get_file_path(
-        step, ExtensionType.JSON, filename="task.json"
+        step, filename="task.json"
     )
 
     if not Path.exists(data_file):
@@ -348,7 +378,11 @@ def put_step_data(
             status_code=400, detail="geojson is required on payload."
         )
     validate_geojson_feature_collection(task_update.geojson)
-    filename = project.get_file_path(step, ExtensionType.GEOJSON)
+    filename = project.get_file_path(step, f"outputs.{ExtensionType.GEOJSON.value}")
+    if filename is None:
+        raise HTTPException(
+            status_code=404, detail="Step does not exist, please run previous step first."
+        )
     filename.write_text(json.dumps(task_update.geojson, indent=2))
 
     # Remove all folders after the current step

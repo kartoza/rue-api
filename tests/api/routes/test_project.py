@@ -8,7 +8,7 @@ from fastapi.testclient import TestClient
 from sqlmodel import Session
 
 from app.core.config import settings
-from app.definition import ExtensionType, StepType, STEPS
+from app.definition import StepType, STEPS
 from app.exceptions import ProjectDoesNotExists
 from app.models import User
 from app.models.project import ProjectCreate, Project
@@ -38,6 +38,7 @@ def test_create_project_empty(
 def test_create_project_works(
         client: TestClient,
         superuser_token_headers: dict[str, str],
+        normal_user_token_headers: dict[str, str],
         db: Session,
         superuser: User
 ) -> None:
@@ -64,6 +65,25 @@ def test_create_project_works(
     assert project.description == "Test Project Description"
     assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 20
     assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 15
+    assert project.created_at is not None
+    assert project.updated_at is not None
+
+    # ----------------------------------
+    # Test security
+    # ----------------------------------
+    # Test return projects as non login
+    r = client.get(
+        f"{settings.API_V1_STR}/projects"
+    )
+    assert r.status_code == 401
+
+    # Test return projects as other user
+    r = client.get(
+        f"{settings.API_V1_STR}/projects",
+        headers=normal_user_token_headers
+    )
+    assert r.status_code == 200
+    assert len(r.json()) == 0
 
     # Test return projects
     r = client.get(
@@ -72,19 +92,78 @@ def test_create_project_works(
     )
     assert r.status_code == 200
     assert len(r.json()) == 1
-    assert r.json()[0] == {
-        "uuid": uuid,
-        "name": "Test Project",
-    }
+    assert r.json()[0]["uuid"] == uuid
+    assert r.json()[0]["name"] == "Test Project"
+    assert r.json()[0]["created_at"] == project.created_at.isoformat()
+    assert r.json()[0]["updated_at"] == project.updated_at.isoformat()
 
     # Test return project
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}"
+    )
+    assert r.status_code == 401
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        headers=normal_user_token_headers
+    )
+    assert r.status_code == 404
+
     r = client.get(
         f"{settings.API_V1_STR}/projects/{uuid}",
         headers=superuser_token_headers,
     )
     assert r.status_code == 200
-    assert r.json()["name"] == "Test Project"
     assert r.json()["uuid"] == uuid
+    assert r.json()["name"] == "Test Project"
+    assert r.json()["created_at"] == project.created_at.isoformat()
+    assert r.json()["updated_at"] == project.updated_at.isoformat()
+
+    # ------------------------------------
+    # PATCH
+    # ------------------------------------
+    last_created_at = project.created_at.isoformat()
+    last_updated_at = project.updated_at.isoformat()
+    data = {
+        "name": "Test Project Patched",
+        "description": "Test Project Description Patched"
+    }
+    r = client.patch(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        json=data,
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+
+    r = client.patch(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        json=data,
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+
+    # Check on model
+    project = Project.get(session=db, uuid=uuid, user=superuser)
+    assert project.name == "Test Project Patched"
+    assert project.description == "Test Project Description Patched"
+    assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 20
+    assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 15
+    assert project.created_at is not None
+    assert project.updated_at is not None
+
+    # Check on response
+    assert r.json()["uuid"] == uuid
+    assert r.json()["name"] == "Test Project Patched"
+    assert r.json()["description"] == "Test Project Description Patched"
+    assert r.json()["created_at"] == project.created_at.isoformat()
+    assert r.json()["updated_at"] == project.updated_at.isoformat()
+    assert last_created_at == project.created_at.isoformat()
+    assert last_updated_at != project.updated_at.isoformat()
 
 
 def test_create_project_error_input(
@@ -130,6 +209,7 @@ def test_create_project_error_input(
 def test_create_project_working_input(
         client: TestClient,
         superuser_token_headers: dict[str, str],
+        normal_user_token_headers: dict[str, str],
         db: Session,
         superuser: User
 ) -> None:
@@ -185,10 +265,14 @@ def test_create_project_working_input(
     task_uuids = {}
     for step in StepType:
         path = project.get_file_path(
-            step, ExtensionType.JSON, filename="task.json"
+            step, filename="task.json"
         )
         with open(path) as f:
             task_uuids[step] = json.loads(f.read())["run_at"]
+
+    # Check last update
+    assert project.updated_at is not None
+    updated_at = project.updated_at
 
     # ----------------------------------------------------
     # UPDATE TEST ERROR
@@ -215,6 +299,13 @@ def test_create_project_working_input(
         "site": roads_data,
         "roads": site_data
     }
+    r = client.put(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        json=data,
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+
     r = client.put(
         f"{settings.API_V1_STR}/projects/{uuid}",
         json=data,
@@ -245,6 +336,13 @@ def test_create_project_working_input(
     r = client.put(
         f"{settings.API_V1_STR}/projects/{uuid}",
         json=data,
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+
+    r = client.put(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        json=data,
         headers=superuser_token_headers,
     )
     assert r.status_code == 200
@@ -254,6 +352,11 @@ def test_create_project_working_input(
     assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 10
     assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 5
 
+    # Check last update
+    assert project.updated_at is not None
+    assert project.updated_at != updated_at
+    updated_at = project.updated_at
+
     assert project.get_path_roads() == project.folder / "input" / "roads.geojson"
     assert project.get_path_site() == project.folder / "input" / "site.geojson"
     with open(project.get_path_site()) as f:
@@ -261,10 +364,48 @@ def test_create_project_working_input(
     with open(project.get_path_roads()) as f:
         assert roads_data == json.load(f)
 
+    # Get site from API
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}/site_input.geojson",
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}/site_input.geojson",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    assert site_data == r.json()
+
+    # Get roads from API
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}/roads_input.geojson",
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}/roads_input.geojson",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+    assert roads_data == r.json()
+
+    # Get task data
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}/site/file/task.json",
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}/site/file/task.json",
+        headers=superuser_token_headers,
+    )
+    assert r.status_code == 200
+
     # Check all steps being rerun
     for step in StepType:
         path = project.get_file_path(
-            step, ExtensionType.JSON, filename="task.json"
+            step, filename="task.json"
         )
         with open(path) as f:
             assert json.loads(f.read())["run_at"] != task_uuids[step]
@@ -295,6 +436,12 @@ def test_create_project_working_input(
     r = client.put(
         f"{settings.API_V1_STR}/projects/{uuid}",
         json=data,
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
+    r = client.put(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        json=data,
         headers=superuser_token_headers,
     )
     assert r.status_code == 200
@@ -303,6 +450,11 @@ def test_create_project_working_input(
     assert project.description == "Test Project Description"
     assert project.parameters.neighbourhood.public_roads.width_of_arteries_m == 10
     assert project.parameters.neighbourhood.public_roads.width_of_secondaries_m == 5
+
+    # Check last update
+    assert project.updated_at is not None
+    assert project.updated_at != updated_at
+    updated_at = project.updated_at
 
     assert project.get_path_roads() == project.folder / "input" / "roads.geojson"
     assert project.get_path_site() == project.folder / "input" / "site.geojson"
@@ -314,7 +466,7 @@ def test_create_project_working_input(
     # Check all steps being rerun
     for step in StepType:
         path = project.get_file_path(
-            step, ExtensionType.JSON, filename="task.json"
+            step, filename="task.json"
         )
         with open(path) as f:
             assert json.loads(f.read())["run_at"] != task_uuids[step]
@@ -323,6 +475,12 @@ def test_create_project_working_input(
     # ----------------------------------------------------
     folder_path = project.folder
     assert folder_path.exists() is True
+
+    r = client.delete(
+        f"{settings.API_V1_STR}/projects/{uuid}",
+        headers=normal_user_token_headers,
+    )
+    assert r.status_code == 404
 
     r = client.delete(
         f"{settings.API_V1_STR}/projects/{uuid}",
@@ -342,6 +500,7 @@ def test_create_project_working_input(
 def test_update_task(
         mock_generate_rue, client: TestClient,
         superuser_token_headers: dict[str, str],
+        normal_user_token_headers: dict[str, str],
         db: Session,
         superuser: User
 ) -> None:
@@ -375,7 +534,7 @@ def test_update_task(
     step_geojson = {}
     for step in StepType:
         geojson_file = project.get_file_path(
-            step, ExtensionType.GEOJSON
+            step, "outputs.geojson"
         )
         with open(geojson_file) as f:
             step_geojson[step.value] = json.load(f)
@@ -398,7 +557,7 @@ def test_update_task(
     project.remove_step_after(target_step)
     for step in StepType:
         geojson_file = project.get_file_path(
-            step, ExtensionType.GEOJSON
+            step, "outputs.geojson"
         )
         if step in [StepType.SITE, StepType.STREETS]:
             assert Path(geojson_file).exists() is True
@@ -406,10 +565,19 @@ def test_update_task(
             assert geojson_file is None
 
     # Load fixture files
+    print("---------------------")
+    print(uuid)
     fixtures_dir = Path(__file__).parent / "fixtures"
     update_geojson = fixtures_dir / "parcel.geojson"
     with open(update_geojson) as f:
         new_geojson = json.load(f)
+        r = client.put(
+            f"{settings.API_V1_STR}/projects/{uuid}/{target_step.value}",
+            json={"geojson": new_geojson},
+            headers=normal_user_token_headers,
+        )
+        assert r.status_code == 404
+
         r = client.put(
             f"{settings.API_V1_STR}/projects/{uuid}/{target_step.value}",
             json={"geojson": new_geojson},
@@ -429,7 +597,7 @@ def test_update_task(
         project = Project.get(session=db, uuid=uuid, user=superuser)
         for step in StepType:
             geojson_file = project.get_file_path(
-                step, ExtensionType.GEOJSON
+                step, "outputs.geojson"
             )
             with open(geojson_file) as f:
                 geojson = json.load(f)

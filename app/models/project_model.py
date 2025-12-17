@@ -39,5 +39,7 @@ class ProjectUser(SQLModel, table=True):
         project = Project(self.uuid)
         project.name = self.name
         project.description = self.description
+        project.created_at = self.created_at
+        project.updated_at = self.updated_at
         project.project_user = self
         return project

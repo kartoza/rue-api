@@ -3,12 +3,16 @@ import shutil
 from datetime import datetime
 from pathlib import Path
 
+from rue_lib.cluster.runner import ClusterConfig, generate_clusters
+from rue_lib.public.runner import PublicConfig, generate_public
 from rue_lib.site.runner import SiteConfig, generate_parcels
 from rue_lib.streets.runner import StreetConfig, generate_streets
 
 from app.celery_app import celery
 from app.core.config import settings
-from app.definition import TaskStatus, StepType, ExtensionType, STEPS
+from app.definition import (
+    TaskStatus, StepType, ExtensionType, STEPS, STEP_INDEX
+)
 from app.models.project import Project
 
 
@@ -31,33 +35,39 @@ def mock_step(current_step_folder_name: str, current_step_folder: Path):
 
 def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
     """Run RUE lib for a step."""
+
     # SITE
-    if step_idx == 0:
+    if step_idx == STEP_INDEX[StepType.SITE]:
         # generate parcels
         config = SiteConfig(
             site_path=str(project.get_path_site()),
             roads_path=str(project.get_path_roads()),
             output_dir=f"{current_step_folder}",
-            geopackage_path=f"{current_step_folder}/output.gpkg",
             road_arterial_width_m=project.parameters.neighbourhood.public_roads.width_of_arteries_m,
             road_secondary_width_m=project.parameters.neighbourhood.public_roads.width_of_secondaries_m
         )
         generate_parcels(config)
     # STREETS
-    elif step_idx == 1:
+    elif step_idx == STEP_INDEX[StepType.STREETS]:
         filepath = project.get_file_path(
-            StepType.SITE, ExtensionType.GEOJSON
+            StepType.SITE, f'outputs.{ExtensionType.GEOJSON.value}'
         )
         # generate parcels
         config = StreetConfig(
             parcel_path=str(filepath),
             roads_path=str(project.get_path_roads()),
             output_dir=f"{current_step_folder}",
+
+            # Neighborhood / public roads
             road_arterial_width_m=project.parameters.neighbourhood.public_roads.width_of_arteries_m,
             road_secondary_width_m=project.parameters.neighbourhood.public_roads.width_of_secondaries_m,
             road_locals_width_m=project.parameters.neighbourhood.public_roads.width_of_locals_m,
-            sidewalk_width_m=project.parameters.neighbourhood.public_spaces.street_section.sidewalk_width_m,
 
+            part_art_d=project.parameters.neighbourhood.on_grid_partitions.depth_along_arteries_m,
+            part_sec_d=project.parameters.neighbourhood.on_grid_partitions.depth_along_secondaries_m,
+            part_loc_d=project.parameters.neighbourhood.on_grid_partitions.depth_along_locals_m,
+
+            # Neighbourhood / on-grid partitions
             on_grid_partition_depth_arterial_roads=(
                 project.parameters.neighbourhood.
                 on_grid_partitions.depth_along_arteries_m
@@ -66,14 +76,86 @@ def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
                 project.parameters.neighbourhood.
                 on_grid_partitions.depth_along_secondaries_m
             ),
-            off_grid_partitions_preferred_depth=project.parameters.neighbourhood.off_grid_partitions.cluster_depth_m,
-            off_grid_partitions_preferred_width=project.parameters.neighbourhood.off_grid_partitions.cluster_width_m,
 
-            part_art_d=project.parameters.neighbourhood.on_grid_partitions.depth_along_arteries_m,
-            part_sec_d=project.parameters.neighbourhood.on_grid_partitions.depth_along_secondaries_m,
-            part_loc_d=project.parameters.neighbourhood.on_grid_partitions.depth_along_locals_m,
+            # Neighbourhood / off-grid partitions
+            off_grid_cluster_depth=(
+                project.parameters.neighbourhood.
+                off_grid_partitions.cluster_depth_m
+            ),
+            off_grid_cluster_width=(
+                project.parameters.neighbourhood.
+                off_grid_partitions.cluster_width_m
+            ),
+            # Neighbourhood / urban block structure
+            off_grid_arterial_clusters_depth=project.parameters.neighbourhood.urban_block_structure.along_arteries.off_grid_clusters_in_depth_m,
+            off_grid_secondary_clusters_depth=project.parameters.neighbourhood.urban_block_structure.along_secondaries.off_grid_clusters_in_depth_m,
+            off_grid_local_clusters_depth=project.parameters.neighbourhood.urban_block_structure.along_locals.off_grid_clusters_in_depth_m,
+            off_grid_local_clusters_width=project.parameters.neighbourhood.urban_block_structure.along_arteries.off_grid_clusters_in_width_m,
+
+            # Neighborhood / public spaces
+            sidewalk_width_m=project.parameters.neighbourhood.public_spaces.street_section.sidewalk_width_m,
         )
         generate_streets(config)
+    # CLUSTER
+    elif step_idx == STEP_INDEX[StepType.CLUSTERS]:
+        filepath = project.get_file_path(
+            StepType.STREETS, f'outputs.{ExtensionType.GEOJSON.value}'
+        )
+        # generate parcels
+        config = ClusterConfig(
+            roads_path=str(project.get_path_roads()),
+            input_path=filepath,
+            output_dir=f"{current_step_folder}",
+
+            # Neighborhood / public roads
+            road_arterial_width_m=project.parameters.neighbourhood.public_roads.width_of_arteries_m,
+            road_secondary_width_m=project.parameters.neighbourhood.public_roads.width_of_secondaries_m,
+            road_local_width_m=project.parameters.neighbourhood.public_roads.width_of_locals_m,
+
+            # Neighbourhood / on-grid partitions
+            on_grid_partition_depth_arterial_roads=(
+                project.parameters.neighbourhood.
+                on_grid_partitions.depth_along_arteries_m
+            ),
+            on_grid_partition_depth_secondary_roads=(
+                project.parameters.neighbourhood.
+                on_grid_partitions.depth_along_secondaries_m
+            ),
+
+            # Neighbourhood / off-grid partitions
+            off_grid_cluster_depth=(
+                project.parameters.neighbourhood.
+                off_grid_partitions.cluster_depth_m
+            ),
+            off_grid_cluster_width=(
+                project.parameters.neighbourhood.
+                off_grid_partitions.cluster_width_m
+            ),
+
+            # Neighborhood / public spaces
+            sidewalk_width_m=project.parameters.neighbourhood.public_spaces.street_section.sidewalk_width_m,
+        )
+        generate_clusters(config)
+    # PUBLIC
+    elif step_idx == STEP_INDEX[StepType.PUBLIC]:
+        site_filepath = project.get_file_path(
+            StepType.SITE, f'outputs.{ExtensionType.GEOJSON.value}'
+        )
+        street_filepath = project.get_file_path(
+            StepType.CLUSTERS, f'outputs.{ExtensionType.GEOJSON.value}'
+        )
+        # generate parcels
+        config = PublicConfig(
+            site_path=site_filepath,
+            input_path=street_filepath,
+            output_dir=f"{current_step_folder}",
+            open_percent=project.parameters.neighbourhood.public_spaces.open_spaces.open_space_percentage,
+            amen_percent=project.parameters.neighbourhood.public_spaces.amenities.amenities_percentage,
+        )
+        generate_public(config)
+
+    else:
+        raise ValueError("Work in progress")
 
 
 @celery.task(bind=True)
@@ -123,11 +205,8 @@ def generate_rue(
         if settings.ENVIRONMENT != "test":
             # Run RUE lib for a step
             run_rue_lib(step_idx, project, current_step_folder)
-
-        # TODO:
-        #  Mock step
-        #  When the rue lib is ready, Remove this mock step
-        if not (settings.ENVIRONMENT != "test" and step_idx in [0, 1]):
+        else:
+            # For test, we use mock data
             mock_step(current_step_folder_name, current_step_folder)
 
         # Script finished successfully

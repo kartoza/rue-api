@@ -147,7 +147,7 @@ class TestTaskModel(unittest.TestCase):
             generate_rue(project.uuid, idx)
             self.assertTrue(
                 Path.exists(
-                    project.get_file_path(type, ExtensionType.JSON).resolve()
+                    project.get_file_path(type, "outputs.geojson").resolve()
                 )
             )
 
@@ -170,10 +170,7 @@ class TestProjectParametersSchema(unittest.TestCase):
         )
         off_grid_partitions = OffGridPartitions(
             cluster_depth_m=45,
-            cluster_size_lots=15,
             cluster_width_m=30,
-            lot_depth_along_path_m=12.5,
-            lot_depth_around_yard_m=10,
         )
 
         block_structure = BlockStructureConfig(
@@ -236,7 +233,6 @@ class TestProjectParametersSchema(unittest.TestCase):
         )
 
         corner_bonus = CornerBonus(
-            description="Density bonus",
             with_artery_percent=40,
             with_secondary_percent=30,
             with_local_percent=20,
@@ -296,10 +292,7 @@ class TestProjectParametersSchema(unittest.TestCase):
 
         # Then
         self.assertEqual(
-            parameters.neighbourhood.public_roads.width_of_arteries_m, 20)
-        self.assertEqual(
-            parameters.tissue.corner_bonus.description,
-            "Density bonus"
+            parameters.neighbourhood.public_roads.width_of_arteries_m, 20
         )
         self.assertEqual(
             parameters.starter_buildings.off_grid_cluster_type_1.initial_width_percent,

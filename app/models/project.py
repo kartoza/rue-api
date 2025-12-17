@@ -2,6 +2,7 @@
 
 import json
 import shutil
+from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 from uuid import UUID
@@ -9,7 +10,7 @@ from uuid import UUID
 from sqlmodel import Field, SQLModel
 
 from app.core.config import settings
-from app.definition import StepType, ExtensionType, STEPS
+from app.definition import StepType, STEPS
 from app.exceptions import ProjectDoesNotExists
 from app.models.project_model import ProjectUser
 from app.models.user import User
@@ -30,15 +31,12 @@ class OnGridPartitions(SQLModel):
 
 class OffGridPartitions(SQLModel):
     cluster_depth_m: float
-    cluster_size_lots: int
     cluster_width_m: float
-    lot_depth_along_path_m: float
-    lot_depth_around_yard_m: float
 
 
 class BlockStructureConfig(SQLModel):
-    off_grid_clusters_in_depth_m: float
-    off_grid_clusters_in_width_m: float
+    off_grid_clusters_in_depth_m: int
+    off_grid_clusters_in_width_m: int
 
 
 class UrbanBlockStructure(SQLModel):
@@ -82,7 +80,6 @@ class Neighbourhood(SQLModel):
 
 
 class LotConfig(SQLModel):
-    depth_m: float
     width_m: float
     front_setback_m: float
     side_margins_m: float
@@ -110,7 +107,6 @@ class OffGridClusterType2(SQLModel):
 
 
 class CornerBonus(SQLModel):
-    description: str
     with_artery_percent: float
     with_secondary_percent: float
     with_local_percent: float
@@ -169,6 +165,29 @@ class ProjectParameters(SQLModel):
 
 
 # Pydantic Schemas for API
+class ProjectPatch(SQLModel):
+    """Schema for patch a project."""
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "name": "Test Project",
+                    "description": "Urban planning project example",
+                    "metadata": {"example-metadata": True},
+                }
+            ]
+        }
+    }
+
+    name: str
+    description: Optional[str] = None
+    project_metadata: Optional[dict[str, Any]] = Field(
+        default=None, alias="metadata"
+    )
+
+
+# Pydantic Schemas for API
 class ProjectCreate(SQLModel):
     """Schema for creating a project."""
 
@@ -194,10 +213,7 @@ class ProjectCreate(SQLModel):
                             },
                             "off_grid_partitions": {
                                 "cluster_depth_m": 45,
-                                "cluster_size_lots": 15,
-                                "cluster_width_m": 30,
-                                "lot_depth_along_path_m": 12.5,
-                                "lot_depth_around_yard_m": 10,
+                                "cluster_width_m": 30
                             },
                             "urban_block_structure": {
                                 "along_arteries": {
@@ -268,7 +284,6 @@ class ProjectCreate(SQLModel):
                                 "lot_depth_behind_cul_de_sac_m": 15,
                             },
                             "corner_bonus": {
-                                "description": "Density (floor) bonus at intersection",
                                 "with_artery_percent": 40,
                                 "with_secondary_percent": 30,
                                 "with_local_percent": 20,
@@ -370,23 +385,6 @@ class TaskUpdate(SQLModel):
     )
 
 
-class ProjectResponse(SQLModel):
-    """Schema for project creation response."""
-
-    uuid: UUID
-    name: str
-
-
-class ProjectDetailResponse(SQLModel):
-    """Schema for project detail response."""
-
-    uuid: UUID
-    name: str
-    description: Optional[str] = None
-    parameters: ProjectParameters
-    project_metadata: Optional[dict[str, Any]]
-
-
 class TaskResponse(SQLModel):
     """Schema for task creation response."""
 
@@ -400,7 +398,7 @@ class ComponentResponse(SQLModel):
 
     file: str
     task: TaskResponse
-    result: Optional[dict[str, Any]] = None
+    financial: Optional[dict[str, Any]] = None
 
 
 # ----------------------------------
@@ -418,6 +416,8 @@ class Project:
     parameters: ProjectParameters = None
     project_metadata: dict[str, Any] = {}
     folder: Path
+    created_at: datetime
+    updated_at: datetime
 
     project_user: Optional[ProjectUser] = None
 
@@ -507,11 +507,7 @@ class Project:
         """Return the folder for the current step."""
         return self.folder / f"{step_idx:02}-{STEPS[step_idx]}"
 
-    def get_file_path(
-            self, step: StepType,
-            extension: ExtensionType,
-            filename: str = None
-    ):
+    def get_file_path(self, step: StepType, filename: str):
         """Get the project file.
 
         If using filename,
@@ -521,17 +517,9 @@ class Project:
         """
         index = STEPS.index(step.value)
         base_dir = self.get_step_folder(index)
-
-        if filename:
+        if Path.exists(base_dir / f"{filename}"):
             return base_dir / f"{filename}"
-
-        # Find all files with the given extension
-        files = list(base_dir.glob(f"*.{extension.value}"))
-
-        if not files:
-            return None
-
-        return files[0]
+        return None
 
     # For site and roads
     @property
@@ -596,6 +584,7 @@ class Project:
         # Save to database
         self.project_user.name = self.name
         self.project_user.description = self.description
+        self.project_user.updated_at = datetime.now()
         session.add(self.project_user)
         session.commit()
         session.refresh(self.project_user)
@@ -607,3 +596,41 @@ class Project:
             generate_rue.delay(str(self.uuid), step_idx)
         else:
             generate_rue(str(self.uuid), step_idx)
+
+
+# -----------------------------------------------------
+# RESPONSES
+# -----------------------------------------------------
+
+class ProjectDetailResponse(SQLModel):
+    """Schema for project detail response."""
+
+    uuid: UUID
+    name: str
+    created_at: datetime
+    updated_at: datetime
+    description: Optional[str] = None
+    parameters: ProjectParameters
+    project_metadata: Optional[dict[str, Any]]
+
+    @staticmethod
+    def create(project: Project):
+        """Create response."""
+        return ProjectDetailResponse(
+            uuid=project.uuid,
+            name=project.name,
+            description=project.description,
+            parameters=project.parameters,
+            project_metadata=project.project_metadata,
+            created_at=project.created_at,
+            updated_at=project.updated_at
+        )
+
+
+class ProjectResponse(SQLModel):
+    """Schema for project creation response."""
+
+    uuid: UUID
+    name: str
+    created_at: datetime
+    updated_at: datetime
