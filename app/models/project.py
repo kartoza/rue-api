@@ -175,15 +175,23 @@ class ProjectPatch(SQLModel):
                     "name": "Test Project",
                     "description": "Urban planning project example",
                     "metadata": {"example-metadata": True},
+                    "site": None,
+                    "roads": None,
                 }
             ]
         }
     }
 
-    name: str
+    name: Optional[str] = None
     description: Optional[str] = None
     project_metadata: Optional[dict[str, Any]] = Field(
         default=None, alias="metadata"
+    )
+    site: dict[str, Any] = Field(
+        default=None, description="Site polygon GeoJSON"
+    )
+    roads: dict[str, Any] = Field(
+        default=None, description="Roads linestring GeoJSON"
     )
 
 

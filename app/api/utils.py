@@ -1,4 +1,4 @@
-from typing import Any
+from typing import Any, Optional
 
 from fastapi import HTTPException
 
@@ -59,18 +59,30 @@ def validate_geojson_feature_collection(
             )
 
 
+def update_site_roads(
+        project: Project, site: Optional[dict[str, Any]],
+        roads: Optional[dict[str, Any]]
+):
+    """Update site and roads GeoJSON."""
+    saved = False
+    if site is not None:
+        validate_geojson_feature_collection(site, "Polygon")
+        project.save_site(site)
+        saved = True
+
+    if roads is not None:
+        validate_geojson_feature_collection(roads, "LineString")
+        project.save_roads(roads)
+        saved = True
+
+    return saved
+
+
 def update_project(
         project: Project, project_in: ProjectCreate, session: SessionDep
 ) -> ProjectDetailResponse:
     """Update project with GeoJSON validation."""
-    if project_in.site is not None:
-        validate_geojson_feature_collection(project_in.site, "Polygon")
-        project.save_site(project_in.site)
-
-    if project_in.roads is not None:
-        validate_geojson_feature_collection(project_in.roads, "LineString")
-        project.save_roads(project_in.roads)
-
+    update_site_roads(project, project_in.site, project_in.roads)
     project.project_metadata = project_in.project_metadata or {}
     project.insert_parameters(project_in.parameters)
     project.update(session=session)
