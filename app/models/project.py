@@ -158,7 +158,12 @@ class StarterBuildings(SQLModel):
     off_grid_cluster_type_2: InitialBuildingPercent
 
 
+class SiteDefinition(SQLModel):
+    dead_end_buffer_distance_m: float
+
+
 class ProjectParameters(SQLModel):
+    site_definition: SiteDefinition
     neighbourhood: Neighbourhood
     tissue: Tissue
     starter_buildings: StarterBuildings
@@ -175,15 +180,23 @@ class ProjectPatch(SQLModel):
                     "name": "Test Project",
                     "description": "Urban planning project example",
                     "metadata": {"example-metadata": True},
+                    "site": None,
+                    "roads": None,
                 }
             ]
         }
     }
 
-    name: str
+    name: Optional[str] = None
     description: Optional[str] = None
     project_metadata: Optional[dict[str, Any]] = Field(
         default=None, alias="metadata"
+    )
+    site: dict[str, Any] = Field(
+        default=None, description="Site polygon GeoJSON"
+    )
+    roads: dict[str, Any] = Field(
+        default=None, description="Roads linestring GeoJSON"
     )
 
 
@@ -200,6 +213,7 @@ class ProjectCreate(SQLModel):
                     "site": None,
                     "roads": None,
                     "parameters": {
+                        "site_definition": {"dead_end_buffer_distance_m": 15},
                         "neighbourhood": {
                             "public_roads": {
                                 "width_of_arteries_m": 20,
@@ -483,6 +497,12 @@ class Project:
             params_json = json.loads(
                 self.file_path_parameters.read_text()
             )
+            try:
+                params_json["site_definition"]["dead_end_buffer_distance_m"]
+            except KeyError:
+                params_json["site_definition"] = {
+                    "dead_end_buffer_distance_m": 15
+                }
             self.parameters = ProjectParameters(**params_json)
         if Path.exists(self.file_path_metadata):
             self.project_metadata = json.loads(

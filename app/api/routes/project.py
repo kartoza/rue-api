@@ -11,7 +11,9 @@ from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import FileResponse
 
 from app.api.deps import CurrentUser, SessionDep
-from app.api.utils import (validate_geojson_feature_collection, update_project)
+from app.api.utils import (
+    validate_geojson_feature_collection, update_project, update_site_roads
+)
 from app.definition import StepType, ExtensionType, STEPS
 from app.exceptions import ProjectDoesNotExists
 from app.models.project import (
@@ -142,11 +144,19 @@ def patch_project_detail(
     except ProjectDoesNotExists as e:
         raise HTTPException(status_code=404, detail=str(e))
 
-    if project_in.project_metadata:
+    if project_in.project_metadata is not None:
         project.project_metadata = project_in.project_metadata
-    project.name = project_in.name
-    project.description = project_in.description
+    if project_in.name is not None:
+        project.name = project_in.name
+    if project_in.description is not None:
+        project.description = project_in.description
+
+    saved = update_site_roads(project, project_in.site, project_in.roads)
     project.update(session=session)
+    if saved:
+        project.reset_step()
+        project.generate()
+
     return ProjectDetailResponse.create(project)
 
 
@@ -310,7 +320,9 @@ def get_step_data(
         step, filename="task.json"
     )
     if not data_file:
-        raise HTTPException(status_code=404, detail=str("Step does not exist."))
+        raise HTTPException(
+            status_code=404, detail=str("Step does not exist.")
+        )
 
     if Path.exists(data_file):
         data = json.loads(data_file.read_text())
@@ -378,10 +390,14 @@ def put_step_data(
             status_code=400, detail="geojson is required on payload."
         )
     validate_geojson_feature_collection(task_update.geojson)
-    filename = project.get_file_path(step, f"outputs.{ExtensionType.GEOJSON.value}")
+    filename = project.get_file_path(
+        step,
+        f"outputs.{ExtensionType.GEOJSON.value}"
+    )
     if filename is None:
         raise HTTPException(
-            status_code=404, detail="Step does not exist, please run previous step first."
+            status_code=404,
+            detail="Step does not exist, please run previous step first."
         )
     filename.write_text(json.dumps(task_update.geojson, indent=2))
 

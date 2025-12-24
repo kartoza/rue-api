@@ -44,7 +44,8 @@ def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
             roads_path=str(project.get_path_roads()),
             output_dir=f"{current_step_folder}",
             road_arterial_width_m=project.parameters.neighbourhood.public_roads.width_of_arteries_m,
-            road_secondary_width_m=project.parameters.neighbourhood.public_roads.width_of_secondaries_m
+            road_secondary_width_m=project.parameters.neighbourhood.public_roads.width_of_secondaries_m,
+            road_local_width_m=project.parameters.neighbourhood.public_roads.width_of_locals_m
         )
         generate_parcels(config)
     # STREETS
@@ -94,6 +95,9 @@ def run_rue_lib(step_idx: int, project: Project, current_step_folder: Path):
 
             # Neighborhood / public spaces
             sidewalk_width_m=project.parameters.neighbourhood.public_spaces.street_section.sidewalk_width_m,
+
+            # Site definition
+            dead_end_buffer_distance=project.parameters.site_definition.dead_end_buffer_distance_m,
         )
         generate_streets(config)
     # CLUSTER
