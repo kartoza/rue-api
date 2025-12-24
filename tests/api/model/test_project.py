@@ -6,6 +6,7 @@ from uuid import UUID
 
 from sqlmodel import Session, SQLModel, create_engine
 
+from app.definition import StepType
 from app.models.project import (
     Project,
     Amenities,
@@ -31,9 +32,8 @@ from app.models.project import (
     StreetSection,
     Tissue,
     Trees,
-    UrbanBlockStructure,
+    UrbanBlockStructure, SiteDefinition,
 )
-from app.definition import StepType, ExtensionType
 from tests.utils.user import create_random_user
 
 
@@ -158,6 +158,9 @@ class TestProjectParametersSchema(unittest.TestCase):
     def test_create_project_parameters_complete(self):
         """Test creating complete ProjectParameters with all nested models."""
         # Given
+        site_definition = SiteDefinition(
+            dead_end_buffer_distance_m=15
+        )
         public_roads = PublicRoads(
             width_of_arteries_m=20,
             width_of_secondaries_m=15,
@@ -285,6 +288,7 @@ class TestProjectParametersSchema(unittest.TestCase):
 
         # When
         parameters = ProjectParameters(
+            site_definition=site_definition,
             neighbourhood=neighbourhood,
             tissue=tissue,
             starter_buildings=starter_buildings,

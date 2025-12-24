@@ -158,7 +158,12 @@ class StarterBuildings(SQLModel):
     off_grid_cluster_type_2: InitialBuildingPercent
 
 
+class SiteDefinition(SQLModel):
+    dead_end_buffer_distance_m: float
+
+
 class ProjectParameters(SQLModel):
+    site_definition: SiteDefinition
     neighbourhood: Neighbourhood
     tissue: Tissue
     starter_buildings: StarterBuildings
@@ -208,6 +213,7 @@ class ProjectCreate(SQLModel):
                     "site": None,
                     "roads": None,
                     "parameters": {
+                        "site_definition": {"dead_end_buffer_distance_m": 15},
                         "neighbourhood": {
                             "public_roads": {
                                 "width_of_arteries_m": 20,
@@ -491,6 +497,12 @@ class Project:
             params_json = json.loads(
                 self.file_path_parameters.read_text()
             )
+            try:
+                params_json["site_definition"]["dead_end_buffer_distance_m"]
+            except KeyError:
+                params_json["site_definition"] = {
+                    "dead_end_buffer_distance_m": 15
+                }
             self.parameters = ProjectParameters(**params_json)
         if Path.exists(self.file_path_metadata):
             self.project_metadata = json.loads(
