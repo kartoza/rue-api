@@ -83,6 +83,9 @@ def update_project(
 ) -> ProjectDetailResponse:
     """Update project with GeoJSON validation."""
     update_site_roads(project, project_in.site, project_in.roads)
+    if project_in.is_using_vmc_demo:
+        project.remove_input()
+
     project.project_metadata = project_in.project_metadata or {}
     project.insert_parameters(project_in.parameters)
     project.update(session=session)
