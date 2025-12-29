@@ -8,7 +8,7 @@ from pathlib import Path
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, PlainTextResponse
 
 from app.api.deps import CurrentUser, SessionDep
 from app.api.utils import (
@@ -95,6 +95,29 @@ def get_project_detail(
         raise HTTPException(status_code=404, detail=str(e))
 
     return ProjectDetailResponse.create(project)
+
+
+@router.get(
+    "/projects/{uuid}/updated_at",
+    status_code=200,
+    response_class=PlainTextResponse,
+    responses={
+        404: ProjectDoesNotExists.response_schema,
+    },
+)
+def get_project_updated_at(
+        *,
+        session: SessionDep,
+        current_user: CurrentUser,
+        uuid: UUID
+) -> str:
+    """Return project details."""
+    try:
+        project = Project.get(session=session, user=current_user, uuid=uuid)
+    except ProjectDoesNotExists as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    return project.updated_at.isoformat()
 
 
 @router.put(

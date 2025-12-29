@@ -456,6 +456,12 @@ def test_create_project_working_input(
     assert project.updated_at != updated_at
     updated_at = project.updated_at
 
+    r = client.get(
+        f"{settings.API_V1_STR}/projects/{uuid}/updated_at",
+        headers=superuser_token_headers,
+    )
+    assert r.text == updated_at.isoformat()
+
     assert project.get_path_roads() == project.folder / "input" / "roads.geojson"
     assert project.get_path_site() == project.folder / "input" / "site.geojson"
     with open(project.get_path_site()) as f:

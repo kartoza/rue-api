@@ -378,6 +378,7 @@ class ProjectCreate(SQLModel):
 
     name: str
     description: Optional[str] = None
+    is_using_vmc_demo: Optional[bool] = False
     site: dict[str, Any] = Field(
         default=None, description="Site polygon GeoJSON"
     )
@@ -540,6 +541,12 @@ class Project:
         if Path.exists(base_dir / f"{filename}"):
             return base_dir / f"{filename}"
         return None
+
+    def remove_input(self):
+        """Remove input folder."""
+        folder_input = self.folder / "input"
+        if folder_input.exists():
+            shutil.rmtree(folder_input)
 
     # For site and roads
     @property
