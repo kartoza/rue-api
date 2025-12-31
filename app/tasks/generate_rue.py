@@ -285,6 +285,17 @@ def generate_streets_from_local(self, uuid: str) -> None:
     task_file = current_step_folder / "task.json"
     Path.mkdir(current_step_folder, parents=True, exist_ok=True)
 
+    # Update the task file
+    task_file.write_text(
+        json.dumps(
+            {
+                "task_id": task_id,
+                "status": TaskStatus.PENDING,
+                "message": "",
+                "run_at": run_at
+            })
+    )
+
     try:
         # generate streets with local roads
         config = street_config(

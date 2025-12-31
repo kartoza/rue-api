@@ -25,7 +25,8 @@ from app.models.project import (
     ProjectDetailResponse,
     TaskUpdate, ProjectPatch,
 )
-from app.tasks.generate_rue import generate_streets_from_local
+from app.tasks.generate_rue import generate_streets_from_local, \
+    process_folder_name
 
 router = APIRouter(tags=["Projects"])
 
@@ -481,6 +482,13 @@ def put_local_streets_data(
             detail="Step does not exist, please run previous step first."
         )
     filename.write_text(json.dumps(task_update.geojson, indent=2))
+
+    step_idx = STEPS.index(StepType.STREETS)
+    current_step_folder_name = process_folder_name(step_idx)
+    current_step_folder = project.folder / current_step_folder_name
+    task_file = current_step_folder / "task.json"
+    if Path.exists(task_file):
+        os.remove(task_file)
 
     # Remove all folders after the current step
     project.remove_step_after(step)
