@@ -600,6 +600,13 @@ class Project:
             if folder_to_remove.exists():
                 shutil.rmtree(folder_to_remove)
 
+    def update_last_update(self, session):
+        """Update last update."""
+        self.project_user.updated_at = datetime.now()
+        session.add(self.project_user)
+        session.commit()
+        session.refresh(self.project_user)
+
     def update(self, session):
         """Update project."""
         if self.parameters:

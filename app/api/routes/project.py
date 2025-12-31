@@ -432,6 +432,7 @@ def put_step_data(
     project.remove_step_after(step)
 
     project.generate(step_idx=step_idx + 1)
+    project.update_last_update(session)
     return None
 
 
@@ -497,4 +498,5 @@ def put_local_streets_data(
         generate_streets_from_local.delay(str(uuid))
     else:
         generate_streets_from_local(str(uuid))
+    project.update_last_update(session)
     return None
