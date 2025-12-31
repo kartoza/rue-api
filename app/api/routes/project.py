@@ -14,6 +14,7 @@ from app.api.deps import CurrentUser, SessionDep
 from app.api.utils import (
     validate_geojson_feature_collection, update_project, update_site_roads
 )
+from app.core.config import settings
 from app.definition import StepType, ExtensionType, STEPS
 from app.exceptions import ProjectDoesNotExists
 from app.models.project import (
@@ -24,6 +25,8 @@ from app.models.project import (
     ProjectDetailResponse,
     TaskUpdate, ProjectPatch,
 )
+from app.tasks.generate_rue import generate_streets_from_local, \
+    process_folder_name
 
 router = APIRouter(tags=["Projects"])
 
@@ -429,4 +432,69 @@ def put_step_data(
     project.remove_step_after(step)
 
     project.generate(step_idx=step_idx + 1)
+    return None
+
+
+@router.put(
+    "/projects/{uuid}/streets/local_streets",
+    status_code=204,
+    responses={
+        404: ProjectDoesNotExists.response_schema,
+    },
+)
+def put_local_streets_data(
+        *,
+        session: SessionDep,
+        current_user: CurrentUser,
+        uuid: UUID,
+        task_update: TaskUpdate
+) -> None:
+    """Update the step data.
+
+    Mostly update the geojson output.
+    So it can regenerate the files.
+    """
+    try:
+        project = Project.get(session=session, user=current_user, uuid=uuid)
+    except ProjectDoesNotExists as e:
+        raise HTTPException(status_code=404, detail=str(e))
+
+    step = StepType.STREETS
+    data_file = project.get_file_path(
+        step, filename="task.json"
+    )
+
+    if not Path.exists(data_file):
+        raise HTTPException(status_code=404, detail="Task does not exist.")
+
+    if task_update.geojson is None:
+        raise HTTPException(
+            status_code=400, detail="geojson is required on payload."
+        )
+    validate_geojson_feature_collection(task_update.geojson)
+    filename = project.get_file_path(
+        step,
+        f"local_streets.{ExtensionType.GEOJSON.value}"
+    )
+    if filename is None:
+        raise HTTPException(
+            status_code=404,
+            detail="Step does not exist, please run previous step first."
+        )
+    filename.write_text(json.dumps(task_update.geojson, indent=2))
+
+    step_idx = STEPS.index(StepType.STREETS)
+    current_step_folder_name = process_folder_name(step_idx)
+    current_step_folder = project.folder / current_step_folder_name
+    task_file = current_step_folder / "task.json"
+    if Path.exists(task_file):
+        os.remove(task_file)
+
+    # Remove all folders after the current step
+    project.remove_step_after(step)
+
+    if settings.ASYNC_SIGNALS:
+        generate_streets_from_local.delay(str(uuid))
+    else:
+        generate_streets_from_local(str(uuid))
     return None
