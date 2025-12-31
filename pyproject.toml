@@ -32,7 +32,7 @@ dependencies = [
     "redis>=5.0.0,<5.2.2",
     "flower>=2.0.1",
     "gdal==3.8.4", # Change this based on your gdal version
-    "rue-lib @ git+https://github.com/kartoza/rue-lib.git@generate_streets_from_local_roads"
+    "rue-lib @ git+https://github.com/kartoza/rue-lib.git"
 ]
 
 [project.optional-dependencies]
