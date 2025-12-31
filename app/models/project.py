@@ -616,7 +616,7 @@ class Project:
         session.commit()
         session.refresh(self.project_user)
 
-    def generate(self, step_idx: int = 0, max_steps_idx: int = None):
+    def generate(self, step_idx: int = 0):
         """Generate the project."""
         from app.tasks.generate_rue import generate_rue
         if settings.ASYNC_SIGNALS:
