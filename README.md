@@ -55,3 +55,10 @@ alembic upgrade head
 # 5) Start the API
 uvicorn app.main:app --reload
 ```
+
+## Updating rue-lib
+
+When there is a new version of rue-lib, do:
+```bash
+pip uninstall -y rue-lib && pip install git+https://github.com/kartoza/rue-lib.git
+```
